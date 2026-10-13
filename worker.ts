@@ -1,0 +1,194 @@
+type Env = {
+  DB: any;
+  ADMIN_PASSWORD?: string;
+  ASSETS: { fetch: (request: Request) => Promise<Response> };
+};
+
+const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...headers },
+  });
+
+const corsHeaders = { "x-content-type-options": "nosniff", "referrer-policy": "strict-origin-when-cross-origin" };
+const clean = (value: unknown, max = 5000) => String(value ?? "").trim().slice(0, max);
+const sha256 = async (value: string) => {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes)).map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+const randomToken = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+};
+const getCookie = (request: Request, name: string) => {
+  const cookie = request.headers.get("Cookie") || "";
+  const part = cookie.split(";").map((x) => x.trim()).find((x) => x.startsWith(name + "="));
+  return part ? decodeURIComponent(part.slice(name.length + 1)) : "";
+};
+const cookieHeader = (token: string, maxAge: number) =>
+  "eyaelo_admin=" + token + "; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=" + maxAge;
+
+async function requireAdmin(request: Request, env: Env) {
+  const token = getCookie(request, "eyaelo_admin");
+  if (!token) return false;
+  const hash = await sha256(token);
+  const row = await env.DB.prepare("SELECT token_hash FROM admin_sessions WHERE token_hash = ? AND expires_at > datetime('now')").bind(hash).first();
+  return Boolean(row);
+}
+async function readBody(request: Request) {
+  const length = Number(request.headers.get("content-length") || "0");
+  if (length > 200000) throw new Error("Request too large");
+  return await request.json() as Record<string, unknown>;
+}
+async function content(env: Env) {
+  const [services, products, projects, settingRows] = await Promise.all([
+    env.DB.prepare("SELECT id, name, description, sort_order FROM services WHERE published = 1 ORDER BY sort_order, id").all(),
+    env.DB.prepare("SELECT id, name, description, category, price, unit, image_url FROM products WHERE published = 1 ORDER BY name").all(),
+    env.DB.prepare("SELECT id, title, description, location, image_url FROM projects WHERE published = 1 ORDER BY id DESC").all(),
+    env.DB.prepare("SELECT key, value FROM site_settings").all(),
+  ]);
+  const settings: Record<string, string> = {};
+  for (const row of settingRows.results || []) settings[row.key] = row.value;
+  return { services: services.results || [], products: products.results || [], projects: projects.results || [], settings };
+}
+async function adminApi(request: Request, env: Env, url: URL) {
+  const path = url.pathname;
+  if (path === "/api/admin/login" && request.method === "POST") {
+    if (!env.ADMIN_PASSWORD || env.ADMIN_PASSWORD.length < 12) return json({ error: "Admin password has not been configured. Add a strong ADMIN_PASSWORD secret in Cloudflare." }, 503);
+    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+    const ipKey = await sha256(ip);
+    await env.DB.prepare("DELETE FROM login_attempts WHERE attempted_at < datetime('now', '-30 minutes')").run();
+    const attempts = await env.DB.prepare("SELECT COUNT(*) AS count FROM login_attempts WHERE ip_key = ? AND attempted_at > datetime('now', '-15 minutes')").bind(ipKey).first();
+    if (Number(attempts?.count || 0) >= 8) return json({ error: "Too many login attempts. Please wait 15 minutes." }, 429);
+    const body = await readBody(request);
+    if (clean(body.password, 200) !== env.ADMIN_PASSWORD) {
+      await env.DB.prepare("INSERT INTO login_attempts (ip_key) VALUES (?)").bind(ipKey).run();
+      return json({ error: "Incorrect password." }, 401);
+    }
+    await env.DB.prepare("DELETE FROM login_attempts WHERE ip_key = ?").bind(ipKey).run();
+    const token = randomToken();
+    const hash = await sha256(token);
+    await env.DB.prepare("DELETE FROM admin_sessions WHERE expires_at <= datetime('now')").run();
+    await env.DB.prepare("INSERT INTO admin_sessions (token_hash, expires_at) VALUES (?, datetime('now', '+12 hours'))").bind(hash).run();
+    return json({ ok: true }, 200, { "set-cookie": cookieHeader(token, 43200) });
+  }
+  if (path === "/api/admin/logout" && request.method === "POST") {
+    const token = getCookie(request, "eyaelo_admin");
+    if (token) await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash = ?").bind(await sha256(token)).run();
+    return json({ ok: true }, 200, { "set-cookie": cookieHeader("", 0) });
+  }
+  if (path === "/api/admin/me" && request.method === "GET") {
+    return (await requireAdmin(request, env)) ? json({ authenticated: true }) : json({ authenticated: false }, 401);
+  }
+  if (!(await requireAdmin(request, env))) return json({ error: "Please log in to the admin dashboard." }, 401);
+
+  if (path === "/api/admin/enquiries" && request.method === "GET") {
+    const rows = await env.DB.prepare("SELECT id, type, name, company, phone, email, subject, details, status, created_at FROM enquiries ORDER BY id DESC LIMIT 200").all();
+    return json(rows.results || []);
+  }
+  const statusMatch = path.match(/^\/api\/admin\/enquiries\/(\d+)$/);
+  if (statusMatch && request.method === "PATCH") {
+    const body = await readBody(request);
+    const status = clean(body.status, 20);
+    if (!["new", "in_progress", "completed", "archived"].includes(status)) return json({ error: "Invalid status." }, 400);
+    await env.DB.prepare("UPDATE enquiries SET status = ? WHERE id = ?").bind(status, Number(statusMatch[1])).run();
+    return json({ ok: true });
+  }
+  if (path === "/api/admin/settings" && request.method === "GET") {
+    const rows = await env.DB.prepare("SELECT key, value FROM site_settings").all();
+    return json(Object.fromEntries((rows.results || []).map((r: any) => [r.key, r.value])));
+  }
+  if (path === "/api/admin/settings" && request.method === "PUT") {
+    const body = await readBody(request);
+    const allowed = ["heroTitle", "heroText"];
+    for (const key of allowed) {
+      if (typeof body[key] === "string") {
+        await env.DB.prepare("INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')")
+          .bind(key, clean(body[key], key === "heroText" ? 600 : 160)).run();
+      }
+    }
+    return json({ ok: true });
+  }
+  const resourceMatch = path.match(/^\/api\/admin\/(products|services|projects)$/);
+  if (resourceMatch && request.method === "GET") {
+    const table = resourceMatch[1];
+    const order = table === "services" ? "sort_order, id" : "id DESC";
+    const rows = await env.DB.prepare("SELECT * FROM " + table + " ORDER BY " + order).all();
+    return json(rows.results || []);
+  }
+  if (resourceMatch && request.method === "POST") {
+    const table = resourceMatch[1];
+    const body = await readBody(request);
+    const published = body.published ? 1 : 0;
+    if (table === "products") {
+      const name = clean(body.name, 160);
+      if (!name) return json({ error: "Product name is required." }, 400);
+      const price = body.price === "" || body.price === null || body.price === undefined ? null : Number(body.price);
+      if (price !== null && (!Number.isFinite(price) || price < 0)) return json({ error: "Enter a valid price." }, 400);
+      const result = await env.DB.prepare("INSERT INTO products (name, description, category, price, unit, image_url, published, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+        .bind(name, clean(body.description, 3000), clean(body.category, 100) || "Other Building Materials", price, clean(body.unit, 40), clean(body.image_url, 1000), published).run();
+      return json({ id: result.meta?.last_row_id }, 201);
+    }
+    if (table === "services") {
+      const name = clean(body.name, 160);
+      if (!name) return json({ error: "Service name is required." }, 400);
+      const result = await env.DB.prepare("INSERT INTO services (name, description, sort_order, published, updated_at) VALUES (?, ?, ?, ?, datetime('now'))")
+        .bind(name, clean(body.description, 3000), Number(body.sort_order) || 0, published).run();
+      return json({ id: result.meta?.last_row_id }, 201);
+    }
+    const title = clean(body.title, 160);
+    if (!title) return json({ error: "Project title is required." }, 400);
+    const result = await env.DB.prepare("INSERT INTO projects (title, description, location, image_url, published, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
+      .bind(title, clean(body.description, 3000), clean(body.location, 160), clean(body.image_url, 1000), published).run();
+    return json({ id: result.meta?.last_row_id }, 201);
+  }
+  const itemMatch = path.match(/^\/api\/admin\/(products|services|projects)\/(\d+)$/);
+  if (itemMatch && request.method === "PUT") {
+    const table = itemMatch[1], id = Number(itemMatch[2]), body = await readBody(request), published = body.published ? 1 : 0;
+    if (table === "products") {
+      const price = body.price === "" || body.price === null || body.price === undefined ? null : Number(body.price);
+      if (price !== null && (!Number.isFinite(price) || price < 0)) return json({ error: "Enter a valid price." }, 400);
+      await env.DB.prepare("UPDATE products SET name=?, description=?, category=?, price=?, unit=?, image_url=?, published=?, updated_at=datetime('now') WHERE id=?")
+        .bind(clean(body.name, 160), clean(body.description, 3000), clean(body.category, 100), price, clean(body.unit, 40), clean(body.image_url, 1000), published, id).run();
+    } else if (table === "services") {
+      await env.DB.prepare("UPDATE services SET name=?, description=?, sort_order=?, published=?, updated_at=datetime('now') WHERE id=?")
+        .bind(clean(body.name, 160), clean(body.description, 3000), Number(body.sort_order) || 0, published, id).run();
+    } else {
+      await env.DB.prepare("UPDATE projects SET title=?, description=?, location=?, image_url=?, published=?, updated_at=datetime('now') WHERE id=?")
+        .bind(clean(body.title, 160), clean(body.description, 3000), clean(body.location, 160), clean(body.image_url, 1000), published, id).run();
+    }
+    return json({ ok: true });
+  }
+  if (itemMatch && request.method === "DELETE") {
+    await env.DB.prepare("DELETE FROM " + itemMatch[1] + " WHERE id = ?").bind(Number(itemMatch[2])).run();
+    return json({ ok: true });
+  }
+  return json({ error: "Not found." }, 404);
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/")) {
+      const headers = corsHeaders;
+      if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...headers, "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS", "access-control-allow-headers": "Content-Type" } });
+      try {
+        if (url.pathname === "/api/content" && request.method === "GET") return json(await content(env), 200, headers);
+        if (url.pathname === "/api/enquiries" && request.method === "POST") {
+          const body = await readBody(request);
+          const name = clean(body.name, 160);
+          if (!name) return json({ error: "Name is required." }, 400, headers);
+          const type = clean(body.type, 30) === "material" ? "material" : "quote";
+          const details = clean(body.details, 6000);
+          await env.DB.prepare("INSERT INTO enquiries (type, name, company, phone, email, subject, details) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(type, name, clean(body.company, 160), clean(body.phone, 80), clean(body.email, 200), clean(body.subject, 200), details).run();
+          return json({ ok: true }, 201, headers);
+        }
+        return await adminApi(request, env, url);
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : "Request failed." }, 400, headers);
+      }
+    }
+    return env.ASSETS.fetch(request);
+  },
+};
