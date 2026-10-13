@@ -3,6 +3,7 @@ import { Menu, X, ArrowRight, MessageCircle, Building2, ShieldCheck, HardHat, Tr
 import { useState } from 'react'
 import { STORE_ENABLED, siteConfig } from './config'
 import { services, materialCategories } from './data/siteData'
+import { eyaeloLogo } from './data/logo'
 
 const nav = [['Home','/'],['Construction','/construction'],['Services','/services'],['Projects','/projects'],['Building Materials','/building-materials'],['Shop','/shop'],['About','/about'],['Contact','/contact']] as const
 
@@ -11,14 +12,14 @@ function Layout({children}:{children:React.ReactNode}){
  const whatsapp=siteConfig.whatsappNumber ? `https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent(siteConfig.whatsappMessage)}` : '#contact'
  return <div className="site-shell">
   <header className="header"><div className="container nav-wrap">
-   <Link className="brand" to="/" onClick={()=>setOpen(false)}><img src="/assets/eyaelo-logo.jpg" alt="Eyaelo Construction Ltd logo"/><span>EYAelo<span>CONSTRUCTION LTD</span></span></Link>
+   <Link className="brand" to="/" onClick={()=>setOpen(false)}><img src={eyaeloLogo} alt="Eyaelo Construction Ltd logo"/><span>EYAelo<span>CONSTRUCTION LTD</span></span></Link>
    <button className="menu-btn" aria-label="Toggle menu" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button>
    <nav className={`nav ${open?'open':''}`}>{nav.map(([label,path])=><NavLink key={path} to={path} className={({isActive})=>isActive?'active':''} onClick={()=>setOpen(false)}>{label}</NavLink>)}<Link className="quote-btn" to="/quote" onClick={()=>setOpen(false)}>Request a Quote <ArrowRight size={16}/></Link></nav>
   </div></header>
   {loc.pathname!=='/' && <div className="page-crumb"><div className="container"><Link to="/">Home</Link><ChevronRight size={15}/><span>{nav.find(n=>n[1]===loc.pathname)?.[0] ?? 'Page'}</span></div></div>}
   <main>{children}</main>
   <a className="whatsapp" href={whatsapp} aria-label="WhatsApp Eyaelo"><MessageCircle size={25}/></a>
-  <footer><div className="container footer-grid"><div><img className="footer-logo" src="/assets/eyaelo-logo.jpg" alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
+  <footer><div className="container footer-grid"><div><img className="footer-logo" src={eyaeloLogo} alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
  </div>
 }
 
