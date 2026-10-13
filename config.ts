@@ -25,7 +25,7 @@ export const siteConfig = {
     {
       name: 'Elolu Martin',
       title: 'Director',
-      email: 'email.martinelolu30@gmail.com',
+      email: 'martinelolu30@gmail.com',
       phone: '+27 78 760 9653',
       whatsapp: '27620686282',
     },
