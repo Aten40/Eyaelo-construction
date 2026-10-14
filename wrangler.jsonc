@@ -24,10 +24,4 @@
     ]
   }
 }
-{
-  // ...
-  "vars": {
-    "ADMIN_PASSWARD": "EYAELO!BUILD@1980"
-  },
-  // ...
-}
+
