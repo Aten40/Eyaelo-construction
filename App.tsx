@@ -20,7 +20,7 @@ function Layout({children}:{children:React.ReactNode}){
  const whatsapp=siteConfig.whatsappNumber ? `https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent(siteConfig.whatsappMessage)}` : '#contact'
  return <div className="site-shell">
   <header className="header"><div className="container nav-wrap">
-   <Link className="brand" to="/" onClick={()=>setOpen(false)}><img src={eyaeloLogo} alt="Eyaelo Construction Ltd logo"/><span>EYAelo<span>CONSTRUCTION LTD</span></span></Link>
+   <Link className="brand" to="/" onClick={()=>setOpen(false)}><img src={eyaeloLogo} alt="Eyaelo Construction Ltd logo"/><span>Eyaelo<span>CONSTRUCTION LTD</span></span></Link>
    <button className="menu-btn" aria-label="Toggle menu" onClick={()=>setOpen(!open)}>{open?<X/>:<Menu/>}</button>
    <nav className={`nav ${open?'open':''}`}>{nav.map(([label,path])=><NavLink key={path} to={path} className={({isActive})=>isActive?'active':''} onClick={()=>setOpen(false)}>{label}</NavLink>)}<Link className="quote-btn" to="/quote" onClick={()=>setOpen(false)}>Request a Quote <ArrowRight size={16}/></Link></nav>
   </div></header>
