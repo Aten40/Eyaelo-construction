@@ -8,6 +8,7 @@ export const siteConfig = {
   domain: 'YOUR_DOMAIN_HERE',
   whatsappNumber: '256782383057',
   whatsappMessage: 'Hello Eyaelo Construction Ltd, I would like to enquire about your construction services/building materials.',
+  facebookUrl: 'https://www.facebook.com/share/1FPf3ixReg/',
   contact: {
     phone: '+256 782 383057',
     email: 'eyamualfred@gmail.com',
