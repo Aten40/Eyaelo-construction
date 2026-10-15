@@ -24,6 +24,45 @@ jobs:
       - name: Build website
         run: npm run build
 
+      - name: Diagnose Cloudflare token and account access
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -e
+          echo "Checking whether Cloudflare accepts the API token..."
+          VERIFY=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" https://api.cloudflare.com/client/v4/user/tokens/verify)
+          echo "$VERIFY" | node -e '
+            let s = "";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              const r = JSON.parse(s);
+              if (r.success && r.result && r.result.status === "active") {
+                console.log("Token is valid and active.");
+              } else {
+                console.error("Cloudflare rejected the token or it is not active.");
+                console.error(JSON.stringify(r.errors || r.messages || []));
+                process.exit(1);
+              }
+            });
+          '
+          echo "Checking Workers access for the configured account..."
+          ACCESS=$(curl -sS -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts")
+          echo "$ACCESS" | node -e '
+            let s = "";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              const r = JSON.parse(s);
+              if (r.success) {
+                console.log("Account access check passed.");
+              } else {
+                console.error("Token is valid, but account/Workers access failed.");
+                console.error(JSON.stringify(r.errors || r.messages || []));
+                process.exit(1);
+              }
+            });
+          '
+
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
