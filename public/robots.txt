@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://eyaelo-construction.martinelolu30.workers.dev/sitemap.xml
