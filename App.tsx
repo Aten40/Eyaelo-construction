@@ -1,5 +1,5 @@
 import { Routes, Route, Link, NavLink, useLocation } from 'react-router-dom'
-import { Menu, X, ArrowRight, MessageCircle, Building2, ShieldCheck, HardHat, Truck, ShoppingBag, ChevronRight } from 'lucide-react'
+import { Menu, X, ArrowRight, MessageCircle, Facebook, Building2, ShieldCheck, HardHat, Truck, ShoppingBag, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AdminPage from './AdminPage'
 import { STORE_ENABLED, siteConfig } from './config'
@@ -26,8 +26,9 @@ function Layout({children}:{children:React.ReactNode}){
   </div></header>
   {loc.pathname!=='/' && <div className="page-crumb"><div className="container"><Link to="/">Home</Link><ChevronRight size={15}/><span>{nav.find(n=>n[1]===loc.pathname)?.[0] ?? 'Page'}</span></div></div>}
   <main>{children}</main>
+  <a className="facebook-float" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Follow Eyaelo Construction on Facebook" title="Follow Eyaelo Construction on Facebook"><Facebook size={25}/></a>
   <a className="whatsapp" href={whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Chat with Eyaelo on WhatsApp" title="Chat with Eyaelo on WhatsApp"><MessageCircle size={25}/></a>
-  <footer><div className="container footer-grid"><div><img className="footer-logo" src={eyaeloLogo} alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
+  <footer><div className="container footer-grid"><div><img className="footer-logo" src={eyaeloLogo} alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p><a className="facebook-footer" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer"><Facebook size={18}/> Follow us on Facebook</a></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
  </div>
 }
 
