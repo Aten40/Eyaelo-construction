@@ -41,15 +41,16 @@ async function readBody(request: Request) {
   return await request.json() as Record<string, unknown>;
 }
 async function content(env: Env) {
-  const [services, products, projects, settingRows] = await Promise.all([
+  const [services, products, videos, projects, settingRows] = await Promise.all([
     env.DB.prepare("SELECT id, name, description, sort_order FROM services WHERE published = 1 ORDER BY sort_order, id").all(),
     env.DB.prepare("SELECT id, name, description, category, price, unit, image_url FROM products WHERE published = 1 ORDER BY name").all(),
+    env.DB.prepare("SELECT id, title, description, video_url, placement FROM videos WHERE published = 1 ORDER BY id DESC").all(),
     env.DB.prepare("SELECT id, title, description, location, image_url FROM projects WHERE published = 1 ORDER BY id DESC").all(),
     env.DB.prepare("SELECT key, value FROM site_settings").all(),
   ]);
   const settings: Record<string, string> = {};
   for (const row of settingRows.results || []) settings[row.key] = row.value;
-  return { services: services.results || [], products: products.results || [], projects: projects.results || [], settings };
+  return { services: services.results || [], products: products.results || [], projects: projects.results || [], videos: videos.results || [], settings };
 }
 async function adminApi(request: Request, env: Env, url: URL) {
   const path = url.pathname;
@@ -109,7 +110,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     }
     return json({ ok: true });
   }
-  const resourceMatch = path.match(/^\/api\/admin\/(products|services|projects)$/);
+  const resourceMatch = path.match(/^\/api\/admin\/(products|services|projects|videos)$/);
   if (resourceMatch && request.method === "GET") {
     const table = resourceMatch[1];
     const order = table === "services" ? "sort_order, id" : "id DESC";
@@ -120,6 +121,16 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const table = resourceMatch[1];
     const body = await readBody(request);
     const published = body.published ? 1 : 0;
+    if (table === "videos") {
+      const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
+      let parsed: URL;
+      try { parsed = new URL(videoUrl); } catch { return json({ error: "Enter a valid YouTube or Vimeo video link." }, 400); }
+      if (parsed.protocol !== "https:" || !["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname)) return json({ error: "Use a public YouTube or Vimeo video link." }, 400);
+      if (!title || !videoUrl) return json({ error: "Video title and link are required." }, 400);
+      if (!["website", "shop", "both"].includes(placement)) return json({ error: "Choose where the video should appear." }, 400);
+      const result = await env.DB.prepare("INSERT INTO videos (title, description, video_url, placement, published, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))").bind(title, clean(body.description, 3000), videoUrl, placement, published).run();
+      return json({ id: result.meta?.last_row_id }, 201);
+    }
     if (table === "products") {
       const name = clean(body.name, 160);
       if (!name) return json({ error: "Product name is required." }, 400);
@@ -142,10 +153,17 @@ async function adminApi(request: Request, env: Env, url: URL) {
       .bind(title, clean(body.description, 3000), clean(body.location, 160), clean(body.image_url, 1000), published).run();
     return json({ id: result.meta?.last_row_id }, 201);
   }
-  const itemMatch = path.match(/^\/api\/admin\/(products|services|projects)\/(\d+)$/);
+  const itemMatch = path.match(/^\/api\/admin\/(products|services|projects|videos)\/(\d+)$/);
   if (itemMatch && request.method === "PUT") {
     const table = itemMatch[1], id = Number(itemMatch[2]), body = await readBody(request), published = body.published ? 1 : 0;
-    if (table === "products") {
+    if (table === "videos") {
+      const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
+      let parsed: URL;
+      try { parsed = new URL(videoUrl); } catch { return json({ error: "Enter a valid YouTube or Vimeo video link." }, 400); }
+      if (!title || parsed.protocol !== "https:" || !["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname)) return json({ error: "Enter a title and a valid YouTube or Vimeo link." }, 400);
+      if (!["website", "shop", "both"].includes(placement)) return json({ error: "Choose where the video should appear." }, 400);
+      await env.DB.prepare("UPDATE videos SET title=?, description=?, video_url=?, placement=?, published=?, updated_at=datetime('now') WHERE id=?").bind(title, clean(body.description, 3000), videoUrl, placement, published, id).run();
+    } else if (table === "products") {
       const price = body.price === "" || body.price === null || body.price === undefined ? null : Number(body.price);
       if (price !== null && (!Number.isFinite(price) || price < 0)) return json({ error: "Enter a valid price." }, 400);
       await env.DB.prepare("UPDATE products SET name=?, description=?, category=?, price=?, unit=?, image_url=?, published=?, updated_at=datetime('now') WHERE id=?")
