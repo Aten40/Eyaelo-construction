@@ -1,5 +1,5 @@
 import { Routes, Route, Link, NavLink, useLocation } from 'react-router-dom'
-import { Menu, X, ArrowRight, MessageCircle, Facebook, Building2, ShieldCheck, HardHat, Truck, ShoppingBag, ChevronRight } from 'lucide-react'
+import { Menu, X, ArrowRight, MessageCircle, Building2, ShieldCheck, HardHat, Truck, ShoppingBag, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AdminPage from './AdminPage'
 import { STORE_ENABLED, siteConfig } from './config'
@@ -7,6 +7,8 @@ import { services, materialCategories } from './data/siteData'
 import { eyaeloLogo } from './data/logo'
 
 const nav = [['Home','/'],['Construction','/construction'],['Services','/services'],['Projects','/projects'],['Videos','/videos'],['Building Materials','/building-materials'],['Shop','/shop'],['About','/about'],['Contact','/contact']] as const
+
+function FacebookMark({size=24}:{size?:number}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.02 4.39 11 10.13 11.93v-8.43H7.08v-3.5h3.05V9.4c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.96h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.32l-.53 3.5h-2.79V24C19.61 23.07 24 18.09 24 12.07Z"/></svg>}
 
 type DynamicContent = { services: {id:number;name:string;description:string}[]; products: {id:number;name:string;description:string;category:string;price:number|null;unit:string;image_url:string}[]; projects: {id:number;title:string;description:string;location:string;image_url:string}[]; videos: {id:number;title:string;description:string;video_url:string;placement:string}[]; settings: Record<string,string> }
 function usePublicContent(): DynamicContent {
@@ -26,9 +28,9 @@ function Layout({children}:{children:React.ReactNode}){
   </div></header>
   {loc.pathname!=='/' && <div className="page-crumb"><div className="container"><Link to="/">Home</Link><ChevronRight size={15}/><span>{nav.find(n=>n[1]===loc.pathname)?.[0] ?? 'Page'}</span></div></div>}
   <main>{children}</main>
-  <a className="facebook-float" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Follow Eyaelo Construction on Facebook" title="Follow Eyaelo Construction on Facebook"><Facebook size={25}/></a>
+  <a className="facebook-float" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer" aria-label="Follow Eyaelo Construction on Facebook" title="Follow Eyaelo Construction on Facebook"><FacebookMark size={25}/></a>
   <a className="whatsapp" href={whatsapp} target="_blank" rel="noopener noreferrer" aria-label="Chat with Eyaelo on WhatsApp" title="Chat with Eyaelo on WhatsApp"><MessageCircle size={25}/></a>
-  <footer><div className="container footer-grid"><div><img className="footer-logo" src={eyaeloLogo} alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p><a className="facebook-footer" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer"><Facebook size={18}/> Follow us on Facebook</a></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
+  <footer><div className="container footer-grid"><div><img className="footer-logo" src={eyaeloLogo} alt="Eyaelo Construction Ltd"/><p>Professional construction solutions and a future building-materials marketplace.</p><a className="facebook-footer" href={siteConfig.facebookUrl} target="_blank" rel="noopener noreferrer"><FacebookMark size={18}/> Follow us on Facebook</a></div><div><h3>Explore</h3>{nav.slice(1,6).map(n=><Link key={n[1]} to={n[1]}>{n[0]}</Link>)}</div><div><h3>Contact Directors</h3><p>Uganda</p>{siteConfig.directors.map(d=><div key={d.email}><strong>{d.name}</strong><p>{d.title}</p><p><a href={`tel:${d.phone.replace(/\\s/g, '')}`}>{d.phone}</a></p><p><a href={`https://wa.me/${d.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a></p><p><a href={`mailto:${d.email}`}>{d.email}</a></p></div>)}</div></div><div className="container copyright">© {new Date().getFullYear()} Eyaelo Construction Ltd. All rights reserved.</div></footer>
  </div>
 }
 
