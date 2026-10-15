@@ -230,3 +230,11 @@ footer a:hover{color:#e1bb60}
   .whatsapp{right:16px;bottom:16px;width:52px;height:52px}
   .facebook-footer{margin-top:10px}
 }
+
+
+/* Responsive, clickable footer logo */
+.footer-logo-link{display:inline-flex;align-items:center;max-width:100%;width:fit-content;margin:0 0 14px;border-radius:8px}
+.footer-logo-link:focus-visible{outline:3px solid #e1bb60;outline-offset:4px}
+.footer-logo{display:block;width:clamp(120px,18vw,180px);height:auto;max-width:100%;object-fit:contain;border-radius:7px;transition:transform .18s ease}
+.footer-logo-link:hover .footer-logo{transform:scale(1.03)}
+@media(max-width:600px){.footer-logo-link{margin-bottom:12px}.footer-logo{width:clamp(110px,42vw,160px)}}
