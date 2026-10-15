@@ -2,11 +2,12 @@ import { FormEvent, useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw } from 'lucide-react';
 
 type Row = Record<string, any>;
-type Tab = 'products' | 'services' | 'projects' | 'enquiries' | 'settings';
+type Tab = 'products' | 'services' | 'projects' | 'videos' | 'enquiries' | 'settings';
 const tabs: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Materials & products' },
   { key: 'services', label: 'Services' },
   { key: 'projects', label: 'Projects' },
+  { key: 'videos', label: 'Videos' },
   { key: 'enquiries', label: 'Customer enquiries' },
   { key: 'settings', label: 'Home page text' },
 ];
@@ -14,7 +15,9 @@ const emptyFor = (tab: Tab): Row => tab === 'products'
   ? { name: '', description: '', category: 'Other Building Materials', price: '', unit: '', image_url: '', published: false }
   : tab === 'services'
     ? { name: '', description: '', sort_order: 0, published: true }
-    : { title: '', description: '', location: '', image_url: '', published: false };
+    : tab === 'projects'
+      ? { title: '', description: '', location: '', image_url: '', published: false }
+      : { title: '', description: '', video_url: '', placement: 'website', published: false };
 
 async function api(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
@@ -167,6 +170,7 @@ export default function AdminPage() {
             </>}
             {tab === 'services' && <>{field('Service name', 'name')}{field('Description', 'description', true)}{field('Display order', 'sort_order')}</>}
             {tab === 'projects' && <>{field('Project title', 'title')}{field('Description', 'description', true)}{field('Location (optional)', 'location')}{field('Photo URL', 'image_url', false, 'Paste an image URL')}</>}
+            {tab === 'videos' && <>{field('Video title', 'title')}{field('Description', 'description', true)}{field('YouTube or Vimeo link', 'video_url', false, 'Paste a YouTube or Vimeo video link')}<label className="admin-field"><span>Show video in</span><select value={record.placement || 'website'} onChange={e => setRecord({ ...record, placement: e.target.value })}><option value="website">Main website</option><option value="shop">Building materials shop</option><option value="both">Website and shop</option></select></label><p className="admin-hint">Use a public YouTube or Vimeo video link. The website embeds the video; it does not upload large video files directly.</p></>}
             <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.published)} onChange={e => setRecord({ ...record, published: e.target.checked })}/><span>Publish this item on the public website</span></label>
             <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving…' : record.id ? 'Save changes' : 'Add item'}</button>
             {record.id && <button className="btn outline" type="button" onClick={() => setRecord(emptyFor(tab))}>Cancel editing</button>}
