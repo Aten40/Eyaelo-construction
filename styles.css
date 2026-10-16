@@ -318,3 +318,60 @@ footer a:hover{color:#e1bb60}
 .market-rights input{margin-top:.25rem;flex:0 0 auto}
 @media(max-width:900px){.catalogue-listings{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.catalogue-toolbar{align-items:stretch;flex-direction:column}.catalogue-toolbar label{align-items:stretch;flex-direction:column}.catalogue-listings{grid-template-columns:1fr}.catalogue-card>img,.catalogue-card-placeholder{height:190px}.catalogue-card-foot{align-items:flex-start;flex-direction:column}}
+
+
+/* Keep design-submission confirmation text comfortably inside its form on all screens */
+.market-rights{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:flex-start!important;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  padding:13px 14px;
+  border:1px solid #d6dbe3;
+  border-radius:8px;
+  background:#fbfcfd;
+  box-sizing:border-box;
+  line-height:1.55;
+  overflow-wrap:anywhere;
+}
+.market-rights input{
+  flex:0 0 18px;
+  width:18px;
+  height:18px;
+  margin:3px 0 0;
+}
+.market-rights span{
+  display:block;
+  flex:1 1 auto;
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.market-form .market-inline-note{
+  display:block;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  padding:14px 16px;
+  margin:16px 0 0;
+  border:1px solid #b8e3c7;
+  border-radius:9px;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.market-form .admin-alert{
+  display:block;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+@media(max-width:600px){
+  .market-rights{padding:12px;gap:9px;align-items:flex-start!important}
+  .market-rights span{font-size:13px;line-height:1.55}
+  .market-form .market-inline-note{padding:12px 13px}
+}
