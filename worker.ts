@@ -253,7 +253,8 @@ export default {
           const body = await readBody(request);
           const name = clean(body.name, 160);
           if (!name) return json({ error: "Name is required." }, 400, headers);
-          const type = clean(body.type, 30) === "material" ? "material" : "quote";
+          const requestedType = clean(body.type, 30);
+          const type = ["material", "career"].includes(requestedType) ? requestedType : "quote";
           const details = clean(body.details, 6000);
           await env.DB.prepare("INSERT INTO enquiries (type, name, company, phone, email, subject, details) VALUES (?, ?, ?, ?, ?, ?, ?)")
             .bind(type, name, clean(body.company, 160), clean(body.phone, 80), clean(body.email, 200), clean(body.subject, 200), details).run();
