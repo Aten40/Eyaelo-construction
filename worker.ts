@@ -40,6 +40,9 @@ async function readBody(request: Request) {
   if (length > 200000) throw new Error("Request too large");
   return await request.json() as Record<string, unknown>;
 }
+
+const designCategories = ["Residential", "Commercial", "Education", "Healthcare", "Infrastructure", "Other projects"];
+
 async function content(env: Env) {
   const [services, products, videos, projects, settingRows] = await Promise.all([
     env.DB.prepare("SELECT id, name, description, sort_order FROM services WHERE published = 1 ORDER BY sort_order, id").all(),
@@ -82,6 +85,38 @@ async function adminApi(request: Request, env: Env, url: URL) {
     return (await requireAdmin(request, env)) ? json({ authenticated: true }) : json({ authenticated: false }, 401);
   }
   if (!(await requireAdmin(request, env))) return json({ error: "Please log in to the admin dashboard." }, 401);
+
+
+  if (path === "/api/admin/designs" && request.method === "GET") {
+    const rows = await env.DB.prepare("SELECT * FROM designs ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END, id DESC").all();
+    return json(rows.results || []);
+  }
+  if (path === "/api/admin/designs" && request.method === "POST") {
+    const body = await readBody(request);
+    const title = clean(body.title, 160), category = clean(body.category, 50);
+    if (!title) return json({ error: "Design title is required." }, 400);
+    if (!designCategories.includes(category)) return json({ error: "Choose a valid design category." }, 400);
+    const status = ["pending", "published", "rejected"].includes(clean(body.status, 20)) ? clean(body.status, 20) : "pending";
+    const result = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, image_url, price_label, rights_confirmed, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+      .bind(title, clean(body.description, 3000), category, clean(body.designer_name, 160), clean(body.designer_email, 200), clean(body.designer_phone, 80), clean(body.portfolio_url, 1000), clean(body.image_url, 1000), clean(body.price_label, 100) || "Enquire for price", body.rights_confirmed ? 1 : 0, status).run();
+    return json({ id: result.meta?.last_row_id }, 201);
+  }
+  const designMatch = path.match(/^\/api\/admin\/designs\/(\d+)$/);
+  if (designMatch && request.method === "PUT") {
+    const body = await readBody(request), id = Number(designMatch[1]);
+    const title = clean(body.title, 160), category = clean(body.category, 50), status = clean(body.status, 20);
+    if (!title) return json({ error: "Design title is required." }, 400);
+    if (!designCategories.includes(category)) return json({ error: "Choose a valid design category." }, 400);
+    if (!["pending", "published", "rejected"].includes(status)) return json({ error: "Choose pending, published or rejected status." }, 400);
+    await env.DB.prepare("UPDATE designs SET title=?, description=?, category=?, designer_name=?, designer_email=?, designer_phone=?, portfolio_url=?, image_url=?, price_label=?, rights_confirmed=?, status=?, updated_at=datetime('now') WHERE id=?")
+      .bind(title, clean(body.description, 3000), category, clean(body.designer_name, 160), clean(body.designer_email, 200), clean(body.designer_phone, 80), clean(body.portfolio_url, 1000), clean(body.image_url, 1000), clean(body.price_label, 100) || "Enquire for price", body.rights_confirmed ? 1 : 0, status, id).run();
+    return json({ ok: true });
+  }
+  const designDelete = path.match(/^\/api\/admin\/designs\/(\d+)$/);
+  if (designDelete && request.method === "DELETE") {
+    await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(Number(designDelete[1])).run();
+    return json({ ok: true });
+  }
 
   if (path === "/api/admin/enquiries" && request.method === "GET") {
     const rows = await env.DB.prepare("SELECT id, type, name, company, phone, email, subject, details, status, created_at FROM enquiries ORDER BY id DESC LIMIT 200").all();
@@ -192,6 +227,28 @@ export default {
       if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...headers, "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS", "access-control-allow-headers": "Content-Type" } });
       try {
         if (url.pathname === "/api/content" && request.method === "GET") return json(await content(env), 200, headers);
+
+        if (url.pathname === "/api/designs" && request.method === "GET") {
+          const category = clean(url.searchParams.get("category"), 50);
+          const rows = category && designCategories.includes(category)
+            ? await env.DB.prepare("SELECT id, title, description, category, designer_name, image_url, price_label FROM designs WHERE status='published' AND category=? ORDER BY id DESC").bind(category).all()
+            : await env.DB.prepare("SELECT id, title, description, category, designer_name, image_url, price_label FROM designs WHERE status='published' ORDER BY id DESC").all();
+          return json(rows.results || [], 200, headers);
+        }
+        if (url.pathname === "/api/design-submissions" && request.method === "POST") {
+          const body = await readBody(request);
+          const title = clean(body.title, 160), category = clean(body.category, 50), name = clean(body.designer_name, 160), email = clean(body.designer_email, 200), phone = clean(body.designer_phone, 80);
+          if (!title || !name || !email || !phone) return json({ error: "Please provide the design title, your name, email and phone." }, 400, headers);
+          if (!designCategories.includes(category)) return json({ error: "Choose a valid design category." }, 400, headers);
+          if (body.rights_confirmed !== true) return json({ error: "Please confirm you own or are authorised to submit this work." }, 400, headers);
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, headers);
+          const portfolio = clean(body.portfolio_url, 1000);
+          if (portfolio) { try { if (new URL(portfolio).protocol !== "https:") throw new Error(); } catch { return json({ error: "Portfolio link must be a valid HTTPS URL." }, 400, headers); } }
+          await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending')")
+            .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio).run();
+          return json({ ok: true, message: "Submission received for review. Artwork uploads will be connected later." }, 201, headers);
+        }
+
         if (url.pathname === "/api/enquiries" && request.method === "POST") {
           const body = await readBody(request);
           const name = clean(body.name, 160);
