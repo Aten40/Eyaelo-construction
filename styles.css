@@ -413,3 +413,25 @@ footer a:hover{color:#e1bb60}
 .marketplace-page #browse-designs .market-category .market-filter-link svg{
   flex:0 0 auto;
 }
+
+
+/* Careers page: responsive, accessible application form */
+.careers-page .careers-banner{display:flex;gap:18px;align-items:flex-start;padding:24px;margin:28px 0 36px;border:1px solid #e7d8ad;border-radius:14px;background:linear-gradient(120deg,#fbf7ec,#fff)}
+.careers-banner-icon{display:grid;place-items:center;flex:0 0 54px;width:54px;height:54px;border-radius:12px;background:#14243a;color:#e1bb60}
+.careers-banner h2,.careers-info h2,.careers-form h2{margin:0 0 12px;color:#14243a;letter-spacing:-.025em}
+.careers-banner p,.careers-info li{color:#5f6d80;line-height:1.7}
+.careers-banner p{margin:0}
+.careers-columns{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:34px;align-items:start}
+.careers-info{padding:24px 0}
+.careers-info ul{padding-left:21px;margin:18px 0 26px}
+.careers-info li{margin:0 0 10px}
+.careers-privacy{display:flex;gap:12px;align-items:flex-start;padding:16px;margin:24px 0;border:1px solid #dce5ed;border-radius:10px;background:#f7f9fb}
+.careers-privacy svg{flex:0 0 auto;color:#8f6817}
+.careers-privacy p{margin:0;color:#5f6d80;font-size:13px;line-height:1.65}
+.careers-form{min-width:0}
+.careers-form h2{font-size:26px}
+.careers-form .form-note{line-height:1.6}
+.careers-form .btn{cursor:pointer}
+.careers-form .btn:disabled{opacity:.65;cursor:wait}
+@media(max-width:800px){.careers-columns{grid-template-columns:1fr;gap:24px}.careers-info{padding:0}.careers-banner{padding:19px}}
+@media(max-width:600px){.careers-page .careers-banner{gap:13px;align-items:flex-start}.careers-banner-icon{flex-basis:44px;width:44px;height:44px}.careers-banner h2{font-size:21px}.careers-form{padding:20px}.careers-form .form-grid{grid-template-columns:1fr}}
