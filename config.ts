@@ -3,8 +3,8 @@ export const STORE_ENABLED = false
 export const siteConfig = {
   name: 'Eyaelo Construction Ltd',
   tagline: 'Construction Services in Uganda & the Region',
-  heroTitle: 'Construction Services in Uganda & Beyond',
-  heroText: 'Professional construction solutions and building-material services for residential, commercial, institutional and civil projects. Based in Uganda, we welcome project enquiries from East Africa and South Sudan, subject to service availability.',
+  heroTitle: 'Building Your Vision. Creating Lasting Value.',
+  heroText: 'Professional construction solutions for residential, commercial, institutional and civil projects. Based in Uganda, Eyaelo welcomes regional enquiries, subject to service availability.',
   domain: 'YOUR_DOMAIN_HERE',
   whatsappNumber: '256782383057',
   whatsappMessage: 'Hello Eyaelo Construction Ltd, I would like to enquire about your construction services/building materials.',
