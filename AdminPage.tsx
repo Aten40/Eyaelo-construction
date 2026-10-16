@@ -2,12 +2,13 @@ import { FormEvent, useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw } from 'lucide-react';
 
 type Row = Record<string, any>;
-type Tab = 'products' | 'services' | 'projects' | 'videos' | 'enquiries' | 'settings';
+type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'enquiries' | 'settings';
 const tabs: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Materials & products' },
   { key: 'services', label: 'Services' },
   { key: 'projects', label: 'Projects' },
   { key: 'videos', label: 'Videos' },
+  { key: 'designs', label: 'Design catalogue' },
   { key: 'enquiries', label: 'Customer enquiries' },
   { key: 'settings', label: 'Home page text' },
 ];
@@ -17,7 +18,9 @@ const emptyFor = (tab: Tab): Row => tab === 'products'
     ? { name: '', description: '', sort_order: 0, published: true }
     : tab === 'projects'
       ? { title: '', description: '', location: '', image_url: '', published: false }
-      : { title: '', description: '', video_url: '', placement: 'website', published: false };
+      : tab === 'designs'
+        ? { title: '', description: '', category: 'Residential', designer_name: '', designer_email: '', designer_phone: '', portfolio_url: '', image_url: '', price_label: 'Enquire for price', rights_confirmed: false, status: 'pending' }
+        : { title: '', description: '', video_url: '', placement: 'website', published: false };
 
 async function api(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
@@ -161,6 +164,15 @@ export default function AdminPage() {
           </div>
           <form className="admin-editor" onSubmit={saveRecord}>
             <h2>{record.id ? 'Edit item' : 'Add new item'}</h2>
+            {tab === 'designs' && <>
+              {field('Design title', 'title')}
+              {field('Description', 'description', true)}
+              <label className="admin-field"><span>Category</span><select value={record.category || 'Residential'} onChange={e => setRecord({ ...record, category: e.target.value })}>{['Residential','Commercial','Education','Healthcare','Infrastructure','Other projects'].map(x => <option key={x}>{x}</option>)}</select></label>
+              {field('Designer name', 'designer_name')}{field('Designer email (private)', 'designer_email')}{field('Designer phone (private)', 'designer_phone')}{field('Portfolio URL', 'portfolio_url')}{field('Preview image URL (storage upload later)', 'image_url')}{field('Price label', 'price_label')}
+              <label className="admin-field"><span>Review status</span><select value={record.status || 'pending'} onChange={e => setRecord({ ...record, status: e.target.value })}><option value="pending">Pending review</option><option value="published">Published</option><option value="rejected">Rejected</option></select></label>
+              <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.rights_confirmed)} onChange={e => setRecord({ ...record, rights_confirmed: e.target.checked })}/><span>Designer confirms ownership or permission to submit</span></label>
+              <p className="admin-hint">Image and design-file uploads will be connected when storage is enabled. Only published designs appear in the public catalogue.</p>
+            </>}
             {tab === 'products' && <>
               {field('Product name', 'name')}
               {field('Description', 'description', true)}
