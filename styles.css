@@ -435,3 +435,6 @@ footer a:hover{color:#e1bb60}
 .careers-form .btn:disabled{opacity:.65;cursor:wait}
 @media(max-width:800px){.careers-columns{grid-template-columns:1fr;gap:24px}.careers-info{padding:0}.careers-banner{padding:19px}}
 @media(max-width:600px){.careers-page .careers-banner{gap:13px;align-items:flex-start}.careers-banner-icon{flex-basis:44px;width:44px;height:44px}.careers-banner h2{font-size:21px}.careers-form{padding:20px}.careers-form .form-grid{grid-template-columns:1fr}}
+
+/* Accessible show/hide control for the admin login password */
+.admin-password-wrap{position:relative;display:flex;align-items:center}.admin-password-wrap input{padding-right:92px!important}.admin-password-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;border-radius:6px;padding:7px 9px;background:#edf3f9;color:var(--navy);font:inherit;font-size:12px;font-weight:700;cursor:pointer}.admin-password-toggle:focus-visible{outline:2px solid var(--navy);outline-offset:2px}.admin-password-toggle:hover{background:#dce7f2}

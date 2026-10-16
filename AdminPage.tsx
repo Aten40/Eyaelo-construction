@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw } from 'lucide-react';
+import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 type Row = Record<string, any>;
 type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'enquiries' | 'settings';
@@ -37,6 +37,7 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false);
   const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<Tab>('products');
@@ -125,7 +126,7 @@ export default function AdminPage() {
       <p>Sign in to manage website content and review customer enquiries.</p>
       {error && <p className="admin-alert" role="alert">{error}</p>}
       <form onSubmit={login} className="admin-form">
-        <label className="admin-field"><span>Admin password</span><input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
+        <label className="admin-field"><span>Admin password</span><div className="admin-password-wrap"><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /><button className="admin-password-toggle" type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>{showPassword ? <EyeOff size={19}/> : <Eye size={19}/>}<span>{showPassword ? 'Hide' : 'Show'}</span></button></div></label>
         <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'} <LockKeyhole size={16}/></button>
       </form>
       <p className="admin-hint">Access is restricted. If the password has not been configured yet, the site administrator must add the ADMIN_PASSWORD secret in Cloudflare.</p>
