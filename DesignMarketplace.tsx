@@ -38,6 +38,7 @@ export default function DesignMarketplace() {
 
   async function submitProfessional(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    const form = e.currentTarget
     setSubmissionBusy(true); setSubmissionMessage(''); setSubmissionError('')
     const data = new FormData(e.currentTarget)
     const payload = { title: data.get('title'), category: data.get('category'), description: data.get('description'), designer_name: data.get('name'), designer_email: data.get('email'), designer_phone: data.get('phone'), portfolio_url: data.get('portfolio'), rights_confirmed: data.get('rights') === 'on' }
@@ -46,7 +47,7 @@ export default function DesignMarketplace() {
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Could not submit your design details.')
       setSubmissionMessage('Thank you. Your design details have been saved for Eyaelo to review. Preview images and design-file uploads will be connected later.')
-      e.currentTarget.reset()
+      form.reset()
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : 'Submission failed. Please try again.')
     } finally { setSubmissionBusy(false) }
