@@ -94,13 +94,13 @@ function Careers(){
   const values=new FormData(form);
   setBusy(true);setError('');
   const fields:Array<[string,string]>=[['Name','name'],['Email','email'],['Phone','phone'],['Location','location'],['Area of interest','role'],['Relevant experience','experience'],['Availability','availability'],['Message','message'],['CV or portfolio link','cvLink']];
-  const details=fields.map(([label,key])=>{const value=String(values.get(key)||'').trim();return value?label+': '+value:''}).filter(Boolean).join('\\n');
+  const details=fields.map(([label,key])=>{const value=String(values.get(key)||'').trim();return value?label+': '+value:''}).filter(Boolean).join('\n');
   const payload={type:'career',name:String(values.get('name')||''),company:'',phone:String(values.get('phone')||''),email:String(values.get('email')||''),subject:String(values.get('role')||'General career application'),details};
   try{
    const response=await fetch('/api/enquiries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
    const result=await response.json().catch(()=>({}));
    if(!response.ok)throw new Error(result.error||'We could not save your application. Please try WhatsApp instead.');
-   const message='Hello Eyaelo Construction Ltd, I have submitted a career application through your website.\\n\\n'+details+'\\n\\nPlease confirm receipt. I understand that submitting an application does not mean a vacancy is available.';
+   const message='Hello Eyaelo Construction Ltd, I have submitted a career application through your website.\n\n'+details+'\n\nPlease confirm receipt. I understand that submitting an application does not mean a vacancy is available.';
    window.location.href='https://wa.me/'+siteConfig.whatsappNumber+'?text='+encodeURIComponent(message);
   }catch(err){setError(err instanceof Error?err.message:'We could not submit your application. Please try WhatsApp instead.');}
   finally{setBusy(false);}
