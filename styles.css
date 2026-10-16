@@ -375,3 +375,41 @@ footer a:hover{color:#e1bb60}
   .market-rights span{font-size:13px;line-height:1.55}
   .market-form .market-inline-note{padding:12px 13px}
 }
+
+
+/* Make the category Browse actions look and behave like clear clickable buttons */
+.marketplace-page #browse-designs .market-category .market-filter-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  min-height:44px;
+  width:100%;
+  margin-top:auto;
+  padding:11px 14px;
+  border:1px solid #14243a;
+  border-radius:8px;
+  background:#14243a;
+  color:#fff;
+  font-size:13px;
+  font-weight:750;
+  line-height:1.25;
+  text-align:center;
+  cursor:pointer;
+  box-shadow:0 3px 8px rgba(20,36,58,.12);
+  transition:background-color .18s ease,border-color .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.marketplace-page #browse-designs .market-category .market-filter-link:hover{
+  background:#c69a35;
+  border-color:#c69a35;
+  color:#14243a;
+  transform:translateY(-2px);
+  box-shadow:0 6px 14px rgba(20,36,58,.16);
+}
+.marketplace-page #browse-designs .market-category .market-filter-link:focus-visible{
+  outline:3px solid #e1bb60;
+  outline-offset:3px;
+}
+.marketplace-page #browse-designs .market-category .market-filter-link svg{
+  flex:0 0 auto;
+}
