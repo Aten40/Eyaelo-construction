@@ -1,6 +1,9 @@
 name: Validate Eyaelo website build
 
 on:
+  push:
+    branches:
+      - feature/design-marketplace
   pull_request:
     branches:
       - main
