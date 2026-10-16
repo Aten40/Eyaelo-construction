@@ -438,3 +438,101 @@ footer a:hover{color:#e1bb60}
 
 /* Accessible show/hide control for the admin login password */
 .admin-password-wrap{position:relative;display:flex;align-items:center}.admin-password-wrap input{padding-right:92px!important}.admin-password-toggle{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:inline-flex;align-items:center;justify-content:center;gap:5px;border:0;border-radius:6px;padding:7px 9px;background:#edf3f9;color:var(--navy);font:inherit;font-size:12px;font-weight:700;cursor:pointer}.admin-password-toggle:focus-visible{outline:2px solid var(--navy);outline-offset:2px}.admin-password-toggle:hover{background:#dce7f2}
+
+
+/* Homepage hero refresh — clearer hierarchy, warmer welcome, and mobile-first spacing */
+.hero{
+  min-height:clamp(590px,calc(100svh - 82px),760px);
+  background-position:center 56%;
+  isolation:isolate;
+}
+.hero-overlay{
+  background:linear-gradient(90deg,rgba(7,17,31,.86) 0%,rgba(10,25,44,.68) 48%,rgba(12,29,49,.2) 100%);
+}
+.hero-inner{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  min-height:inherit;
+  padding-top:clamp(48px,7vw,82px);
+  padding-bottom:clamp(48px,7vw,82px);
+}
+.hero-copy{max-width:790px}
+.hero-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:9px 13px;
+  margin-bottom:18px;
+  border:1px solid rgba(227,191,104,.38);
+  border-radius:999px;
+  background:rgba(11,24,41,.35);
+  color:#f0ce79;
+  font-size:11px;
+  font-weight:750;
+  letter-spacing:.16em;
+}
+.hero-eyebrow-mark{
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+  border-radius:50%;
+  background:#e3bf68;
+  box-shadow:0 0 0 4px rgba(227,191,104,.13);
+}
+.hero h1{
+  max-width:760px;
+  margin:0 0 20px;
+  text-wrap:balance;
+  text-shadow:0 3px 24px rgba(0,0,0,.16);
+}
+.hero p{
+  max-width:650px;
+  margin:0;
+  font-size:clamp(16px,1.5vw,19px);
+  line-height:1.75;
+  text-shadow:0 2px 12px rgba(0,0,0,.18);
+}
+.hero .actions{gap:13px;margin-top:30px}
+.hero .actions .btn{min-height:49px}
+.hero .actions .btn.primary{box-shadow:0 8px 24px rgba(198,154,53,.24)}
+.hero-highlights{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:9px 19px;
+  margin-top:28px;
+  color:#f1f4f8;
+  font-size:12px;
+  font-weight:650;
+  letter-spacing:.025em;
+}
+.hero-highlights span{display:inline-flex;align-items:center;gap:8px}
+.hero-highlights span::before{
+  content:"";
+  display:block;
+  width:5px;
+  height:5px;
+  flex:0 0 5px;
+  border-radius:50%;
+  background:#e3bf68;
+}
+.intro-grid h2{max-width:560px}
+.intro-grid p{font-size:16px;line-height:1.85}
+@media(max-width:600px){
+  .hero{min-height:590px;background-position:61% center}
+  .hero-overlay{background:linear-gradient(90deg,rgba(7,17,31,.84) 0%,rgba(10,25,44,.68) 66%,rgba(12,29,49,.38) 100%)}
+  .hero-inner{padding-top:40px;padding-bottom:40px}
+  .hero-copy{width:100%}
+  .hero-eyebrow{font-size:10px;padding:8px 11px;margin-bottom:16px}
+  .hero h1{font-size:clamp(38px,10.4vw,50px);line-height:1.04;margin-bottom:17px}
+  .hero p{font-size:15px;line-height:1.7}
+  .hero .actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:24px}
+  .hero .actions .btn{width:100%;justify-content:center}
+  .hero-highlights{gap:10px 14px;margin-top:22px;font-size:11px}
+}
+@media(min-width:601px) and (max-width:900px){
+  .hero{min-height:620px}
+  .hero h1{font-size:clamp(48px,7.5vw,64px)}
+}
