@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 type Row = Record<string, any>;
-type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'enquiries' | 'settings';
+type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'enquiries' | 'settings' | 'images';
 const tabs: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Materials & products' },
   { key: 'services', label: 'Services' },
@@ -11,6 +11,32 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'designs', label: 'Design catalogue' },
   { key: 'enquiries', label: 'Customer enquiries' },
   { key: 'settings', label: 'Home page text' },
+  { key: 'images', label: 'Category photos' },
+];
+
+const imageCategories = [
+  { group: 'Construction', name: 'Residential Construction' },
+  { group: 'Construction', name: 'Commercial and Retail Buildings' },
+  { group: 'Construction', name: 'Healthcare and Institutional Facilities' },
+  { group: 'Construction', name: 'Roads and Transport Infrastructure' },
+  { group: 'Construction', name: 'Industrial and Agro-Processing Facilities' },
+  { group: 'Construction', name: 'Property and Mixed-Use Developments' },
+  { group: 'Construction', name: 'Water and Sanitation Infrastructure' },
+  { group: 'Construction', name: 'Bridges and Major Structures' },
+  { group: 'Construction', name: 'Warehousing and Logistics Facilities' },
+  { group: 'Services', name: 'Structural and Foundation Works' },
+  { group: 'Services', name: 'Civil and Site Works' },
+  { group: 'Services', name: 'Renovation and Refurbishment' },
+  { group: 'Services', name: 'Roofing and Building Finishes' },
+  { group: 'Services', name: 'Reinforcement Steel Works' },
+  { group: 'Services', name: 'Water, Drainage and Sanitation' },
+  { group: 'Services', name: 'Construction Materials Sourcing' },
+  { group: 'Services', name: 'Site Clearance and Earthworks' },
+  { group: 'Services', name: 'Concrete and Formwork Works' },
+  { group: 'Services', name: 'Waterproofing and Damp Protection' },
+  { group: 'Services', name: 'Paving, Kerbs and External Works' },
+  { group: 'Services', name: 'Project and Site Coordination' },
+  { group: 'Services', name: 'Building Maintenance and Repairs' },
 ];
 const emptyFor = (tab: Tab): Row => tab === 'products'
   ? { name: '', description: '', category: 'Other Building Materials', price: '', unit: '', image_url: '', published: false }
@@ -43,14 +69,14 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('products');
   const [rows, setRows] = useState<Row[]>([]);
   const [record, setRecord] = useState<Row>(emptyFor('products'));
-  const [settings, setSettings] = useState({ heroTitle: '', heroText: '' });
+  const [settings, setSettings] = useState<Record<string, string>>({ heroTitle: '', heroText: '' });
   const [busy, setBusy] = useState(false);
 
   const load = async (selected: Tab = tab) => {
     setError('');
-    if (selected === 'settings') {
+    if (selected === 'settings' || selected === 'images') {
       const value = await api('/api/admin/settings');
-      setSettings({ heroTitle: value.heroTitle || '', heroText: value.heroText || '' });
+      setSettings(value || {});
     } else {
       const value = await api('/api/admin/' + selected);
       setRows(Array.isArray(value) ? value : []);
@@ -99,6 +125,17 @@ export default function AdminPage() {
     try { await api('/api/admin/' + tab + '/' + row.id, { method: 'DELETE' }); await load(tab); if (record.id === row.id) setRecord(emptyFor(tab)); setNotice('Item deleted.'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Could not delete this item.'); }
   };
+  const saveCategoryImages = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('');
+    try {
+      const imageValues: Record<string, string> = {};
+      for (const item of imageCategories) imageValues['categoryImage:' + item.name] = settings['categoryImage:' + item.name] || '';
+      await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(imageValues) });
+      setNotice('Category photos saved. The public Construction and Services pages will use these images.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save category photos.'); }
+    finally { setBusy(false); }
+  };
+
   const saveSettings = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try { await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(settings) }); setNotice('Home page text saved.'); }
@@ -139,7 +176,24 @@ export default function AdminPage() {
       <div className="admin-tabs">{tabs.map(item => <button key={item.key} type="button" className={tab === item.key ? 'active' : ''} onClick={() => changeTab(item.key)}>{item.label}</button>)}</div>
       {error && <p className="admin-alert" role="alert">{error}</p>}
       {notice && <p className="admin-success" role="status">{notice}</p>}
-      {tab === 'settings' ? (
+      {tab === 'images' ? (
+        <form className="admin-editor category-image-editor" onSubmit={saveCategoryImages}>
+          <h2>Construction and Services photos</h2>
+          <p className="admin-hint">Add a direct HTTPS image link for each category. You can use Eyaelo's own project photos when they are hosted online. Leave a field blank to return to the website's default photo. Use ordinary, real site photographs that match the work; avoid logos and unrelated images.</p>
+          {['Construction', 'Services'].map(group => <div className="category-image-group" key={group}>
+            <h3>{group}</h3>
+            {imageCategories.filter(item => item.group === group).map(item => {
+              const key = 'categoryImage:' + item.name;
+              const value = settings[key] || '';
+              return <div className="category-image-edit-row" key={item.name}>
+                <label className="admin-field"><span>{item.name}</span><input type="url" inputMode="url" value={value} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder="https://… direct image URL" /></label>
+                {value && <img src={value} alt={'Preview: ' + item.name} loading="lazy" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />}
+              </div>;
+            })}
+          </div>)}
+          <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving photos…' : 'Save category photos'}</button>
+        </form>
+      ) : tab === 'settings' ? (
         <form className="admin-editor" onSubmit={saveSettings}>
           <h2>Home page message</h2>
           <label className="admin-field"><span>Main heading</span><input value={settings.heroTitle} onChange={e => setSettings({ ...settings, heroTitle: e.target.value })} maxLength={160} required /></label>
