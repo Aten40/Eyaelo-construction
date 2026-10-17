@@ -69,13 +69,13 @@ function categoryImage(title:string){
   'Construction Materials Sourcing':'photo-1764470738268-99e79e2c8b05',
   'Site Clearance and Earthworks':'photo-1751054619908-65d27a503ce8',
   'Concrete and Formwork Works':'photo-1777919393730-463e2c0b7f4c',
-  'Waterproofing and Damp Protection':'photo-1763665814485-a0a1b6f51ed7',
+  'Waterproofing and Damp Protection':'https://images.pexels.com/photos/39238313/pexels-photo-39238313/free-photo-of-worker-installing-waterproofing-membrane-on-roof.jpeg?auto=compress&cs=tinysrgb&w=900',
   'Paving, Kerbs and External Works':'photo-1783753444957-cd4edec5e685',
   'Project and Site Coordination':'photo-1653280668407-50b18ec4ef42',
   'Building Maintenance and Repairs':'photo-1763665814485-a0a1b6f51ed7'
  };
  const id=images[title] || 'photo-1777919393730-463e2c0b7f4c';
- return 'https://images.unsplash.com/'+id+'?auto=format&fit=crop&w=900&q=75';
+ return id.startsWith('https://') ? id : 'https://images.unsplash.com/'+id+'?auto=format&fit=crop&w=900&q=75';
 }
 function Construction(){const displayedProjects:[string,string][]=[
  ["Residential Construction","Houses, apartments, townhouses and residential estates, including new homes, extensions and residential developments."],
