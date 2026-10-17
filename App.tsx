@@ -20,6 +20,7 @@ function usePublicContent(): DynamicContent {
 
 function Layout({children}:{children:React.ReactNode}){
  const [open,setOpen]=useState(false); const loc=useLocation()
+ useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[loc.pathname,loc.search])
  const whatsapp=siteConfig.whatsappNumber ? `https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent(siteConfig.whatsappMessage)}` : '#contact'
  return <div className="site-shell">
   <header className="header"><div className="container nav-wrap">
