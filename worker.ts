@@ -119,8 +119,17 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
 
   if (path === "/api/admin/enquiries" && request.method === "GET") {
-    const rows = await env.DB.prepare("SELECT id, type, name, company, phone, email, subject, details, status, created_at FROM enquiries ORDER BY id DESC LIMIT 200").all();
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS career_cvs (enquiry_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(enquiry_id) REFERENCES enquiries(id) ON DELETE CASCADE)").run();
+    const rows = await env.DB.prepare("SELECT e.id, e.type, e.name, e.company, e.phone, e.email, e.subject, e.details, e.status, e.created_at, c.file_name AS cv_file_name FROM enquiries e LEFT JOIN career_cvs c ON c.enquiry_id = e.id ORDER BY e.id DESC LIMIT 200").all();
     return json(rows.results || []);
+  }
+  const cvMatch = path.match(/^\\/api\\/admin\\/enquiries\\/(\\d+)\\/cv$/);
+  if (cvMatch && request.method === "GET") {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS career_cvs (enquiry_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(enquiry_id) REFERENCES enquiries(id) ON DELETE CASCADE)").run();
+    const row = await env.DB.prepare("SELECT c.file_name, c.content_type, c.file_data FROM career_cvs c JOIN enquiries e ON e.id = c.enquiry_id WHERE c.enquiry_id = ? AND e.type = 'career'").bind(Number(cvMatch[1])).first();
+    if (!row) return json({ error: "No CV file is attached to this application." }, 404);
+    const safeName = String(row.file_name || "cv").replace(/[\\r\\n"]/g, "_");
+    return new Response(row.file_data, { status: 200, headers: { "content-type": row.content_type || "application/octet-stream", "content-disposition": "attachment; filename=\"" + safeName + "\"", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
   }
   const statusMatch = path.match(/^\/api\/admin\/enquiries\/(\d+)$/);
   if (statusMatch && request.method === "PATCH") {
@@ -268,15 +277,62 @@ export default {
         }
 
         if (url.pathname === "/api/enquiries" && request.method === "POST") {
-          const body = await readBody(request);
+          const contentType = request.headers.get("content-type") || "";
+          let body: Record<string, unknown>;
+          let cvFile: File | null = null;
+          if (contentType.toLowerCase().includes("multipart/form-data")) {
+            const length = Number(request.headers.get("content-length") || "0");
+            if (length > 1_150_000) return json({ error: "The upload is too large. CV files must be 1 MB or smaller." }, 413, headers);
+            const form = await request.formData();
+            body = Object.fromEntries(Array.from(form.entries()).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+            const uploaded = form.get("cv");
+            if (uploaded instanceof File && uploaded.size > 0) cvFile = uploaded;
+          } else {
+            body = await readBody(request);
+          }
           const name = clean(body.name, 160);
           if (!name) return json({ error: "Name is required." }, 400, headers);
           const requestedType = clean(body.type, 30);
           const type = ["material", "career"].includes(requestedType) ? requestedType : "quote";
-          const details = clean(body.details, 6000);
-          await env.DB.prepare("INSERT INTO enquiries (type, name, company, phone, email, subject, details) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .bind(type, name, clean(body.company, 160), clean(body.phone, 80), clean(body.email, 200), clean(body.subject, 200), details).run();
-          return json({ ok: true }, 201, headers);
+          if (cvFile && type !== "career") return json({ error: "CV uploads are only accepted with career applications." }, 400, headers);
+          let cvType = "";
+          let cvName = "";
+          let cvBytes: Uint8Array | null = null;
+          if (cvFile) {
+            if (cvFile.size > 1_048_576) return json({ error: "Your CV must be 1 MB or smaller." }, 413, headers);
+            cvName = cvFile.name.split(/[\\/]/).pop()!.replace(/[\\r\\n]/g, "_").slice(0, 180);
+            const ext = cvName.toLowerCase().split(".").pop() || "";
+            if (!["pdf", "doc", "docx"].includes(ext)) return json({ error: "Upload your CV as a PDF, DOC or DOCX file." }, 400, headers);
+            cvBytes = new Uint8Array(await cvFile.arrayBuffer());
+            const signature = Array.from(cvBytes.slice(0, 8));
+            const validSignature = ext === "pdf"
+              ? signature[0] === 37 && signature[1] === 80 && signature[2] === 68 && signature[3] === 70
+              : ext === "doc"
+                ? signature.slice(0, 8).join(",") === "208,207,17,224,161,177,26,225"
+                : signature[0] === 80 && signature[1] === 75 && signature[2] === 3 && signature[3] === 4;
+            if (!validSignature) return json({ error: "The file does not appear to be a valid PDF, DOC or DOCX document." }, 400, headers);
+            cvType = ext === "pdf" ? "application/pdf" : ext === "doc" ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          }
+          const fields: Array<[string, string]> = [["Name", "name"], ["Email", "email"], ["Phone", "phone"], ["Location", "location"], ["Area of interest", "role"], ["Relevant experience", "experience"], ["Availability", "availability"], ["Message", "message"], ["CV or portfolio link", "cvLink"]];
+          let details = clean(body.details, 6000);
+          if (type === "career") {
+            details = fields.map(([label, key]) => { const value = clean(body[key], key === "message" ? 3000 : 1000); return value ? label + ": " + value : ""; }).filter(Boolean).join("\\n");
+            if (cvFile) details += (details ? "\\n" : "") + "CV attached: " + cvName;
+          }
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS career_cvs (enquiry_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(enquiry_id) REFERENCES enquiries(id) ON DELETE CASCADE)").run();
+          const saved = await env.DB.prepare("INSERT INTO enquiries (type, name, company, phone, email, subject, details) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            .bind(type, name, clean(body.company, 160), clean(body.phone, 80), clean(body.email, 200), clean(body.subject || body.role || (type === "career" ? "General career application" : ""), 200), details).run();
+          const enquiryId = Number(saved.meta?.last_row_id || 0);
+          if (cvFile && cvBytes && enquiryId) {
+            try {
+              await env.DB.prepare("INSERT INTO career_cvs (enquiry_id, file_name, content_type, file_data) VALUES (?, ?, ?, ?)")
+                .bind(enquiryId, cvName, cvType, cvBytes).run();
+            } catch (uploadError) {
+              await env.DB.prepare("DELETE FROM enquiries WHERE id = ?").bind(enquiryId).run();
+              throw uploadError;
+            }
+          }
+          return json({ ok: true, id: enquiryId, cv_uploaded: Boolean(cvFile) }, 201, headers);
         }
         return await adminApi(request, env, url);
       } catch (error) {
