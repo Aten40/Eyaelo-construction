@@ -1,44 +1,43 @@
-
 export const services: [string, string][] = [
 [
 "Building Construction",
-"Construction solutions for residential, commercial and institutional building projects."
+"Residential, commercial and institutional building requirements, with scope defined against the client brief, available drawings and project specifications."
 ],
 [
-"Civil Construction",
-"Civil works and supporting construction services for project requirements."
+"Civil Construction and Site Works",
+"Project-specific civil works and site support, subject to scope review, site conditions, technical requirements and resource availability."
 ],
 [
 "Structural Construction",
-"Structural construction works involving foundations, beams, columns and slabs."
+"Construction-related structural scopes such as foundations, beams, columns and slabs, carried out against approved drawings and applicable specifications."
 ],
 [
 "Reinforcement Steel",
-"Reinforcement steel installation and related concrete structural works."
+"Reinforcement-steel requirements and associated works, with bar sizes, grades, quantities and placement details confirmed against project documentation."
 ],
 [
 "Concrete Works",
-"Concrete placement and related works for foundations, slabs and structural elements."
+"Concrete-related works for foundations, slabs and structural elements, subject to specified strength requirements, mix details, placement conditions and quality checks."
 ],
 [
-"Foundations",
-"Foundation construction support based on project specifications."
+"Foundation and Substructure Works",
+"Foundation and below-ground construction requirements based on site information, approved design details and project-specific specifications."
 ],
 [
-"Roofing and Building Works",
-"Roofing and associated building works for construction projects."
+"Roofing and Building Finishes",
+"Roofing and associated building works, with material type, dimensions, finish and installation scope confirmed for each project."
 ],
 [
 "Renovation and Maintenance",
-"Renovation, repair and maintenance services for existing buildings."
+"Repair, renovation and maintenance requirements for existing buildings, based on an assessment of the requested scope."
 ],
 [
 "Retaining Walls",
-"Retaining wall construction for suitable building and civil projects."
+"Retaining-wall construction enquiries assessed against the design, ground conditions, drainage provisions and relevant engineering requirements."
 ],
 [
-"Site Support",
-"Construction site support and related work coordination."
+"Construction Procurement and Site Coordination",
+"Coordination of material schedules, supplier quotations, delivery requirements and construction-related enquiries within the agreed scope."
 ]
 ];
 
