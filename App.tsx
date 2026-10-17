@@ -49,30 +49,30 @@ function StandardPage({title,eyebrow,children}:{title:string;eyebrow:string;chil
 
 function categoryImage(title:string, settings:Record<string,string> = {}){
  const images:Record<string,string>={
-  'Residential Construction':'photo-1778438387124-b304a43a710b',
+  'Residential Construction':'photo-1600596542815-ffad4c1539a9',
   'Commercial and Retail Buildings':'photo-1486406146926-c627a92ad1ab',
   'Healthcare and Institutional Facilities':'photo-1587351021759-3e566b6af7cc',
-  'Roads and Transport Infrastructure':'photo-1783753444957-cd4edec5e685',
-  'Industrial and Agro-Processing Facilities':'photo-1764470738268-99e79e2c8b05',
-  'Property and Mixed-Use Developments':'photo-1486406146926-c627a92ad1ab',
-  'Water and Sanitation Infrastructure':'photo-1751054619908-65d27a503ce8',
-  'Bridges and Major Structures':'photo-1786471919740-ef5e4b5504da',
-  'Warehousing and Logistics Facilities':'photo-1764470738268-99e79e2c8b05',
-  'Structural and Foundation Works':'photo-1777919393730-463e2c0b7f4c',
-  'Civil and Site Works':'photo-1751054619908-65d27a503ce8',
-  'Renovation and Refurbishment':'photo-1653280668407-50b18ec4ef42',
-  'Roofing and Building Finishes':'photo-1763665814485-a0a1b6f51ed7',
-  'Reinforcement Steel Works':'photo-1653280668407-50b18ec4ef42',
-  'Water, Drainage and Sanitation':'photo-1751054619908-65d27a503ce8',
-  'Construction Materials Sourcing':'photo-1764470738268-99e79e2c8b05',
-  'Site Clearance and Earthworks':'photo-1751054619908-65d27a503ce8',
-  'Concrete and Formwork Works':'photo-1777919393730-463e2c0b7f4c',
+  'Roads and Transport Infrastructure':'photo-1519608487953-e999c86e7455',
+  'Industrial and Agro-Processing Facilities':'photo-1581091226825-a6a2a5aee158',
+  'Property and Mixed-Use Developments':'photo-1497366754035-f200968a6e72',
+  'Water and Sanitation Infrastructure':'photo-1541911087797-f3a4a3e7c2d1',
+  'Bridges and Major Structures':'photo-1517089596392-fb9a9033e05b',
+  'Warehousing and Logistics Facilities':'photo-1586528116311-ad8dd3c8310d',
+  'Structural and Foundation Works':'photo-1503387762-592deb58ef4e',
+  'Civil and Site Works':'photo-1504307651254-35680f356dfd',
+  'Renovation and Refurbishment':'photo-1600607687939-ce8a6c25118c',
+  'Roofing and Building Finishes':'photo-1635424710928-6b4c2c0c8e11',
+  'Reinforcement Steel Works':'photo-1504917595217-d4dc5ebe6122',
+  'Water, Drainage and Sanitation':'photo-1541911087797-f3a4a3e7c2d1',
+  'Construction Materials Sourcing':'photo-1530124566582-a618bc2615dc',
+  'Site Clearance and Earthworks':'photo-1504307651254-35680f356dfd',
+  'Concrete and Formwork Works':'photo-1513467655676-561b7d489a88',
   'Waterproofing and Damp Protection':'https://images.pexels.com/photos/39238313/pexels-photo-39238313/free-photo-of-worker-installing-waterproofing-membrane-on-roof.jpeg?auto=compress&cs=tinysrgb&w=900',
-  'Paving, Kerbs and External Works':'photo-1783753444957-cd4edec5e685',
-  'Project and Site Coordination':'photo-1653280668407-50b18ec4ef42',
-  'Building Maintenance and Repairs':'photo-1763665814485-a0a1b6f51ed7'
+  'Paving, Kerbs and External Works':'photo-1558618666-fcd25c85cd64',
+  'Project and Site Coordination':'photo-1507208773393-40d9fc670f27',
+  'Building Maintenance and Repairs':'photo-1621905251189-08b45d6a269e'
  };
- const id=settings['categoryImage:'+title] || images[title] || 'photo-1777919393730-463e2c0b7f4c';
+ const id=settings['categoryImage:'+title] || images[title] || 'photo-1503387762-592deb58ef4e';
  return id.startsWith('https://') ? id : 'https://images.unsplash.com/'+id+'?auto=format&fit=crop&w=900&q=75';
 }
 function Construction(){const content=usePublicContent();const displayedProjects:[string,string][]=[
