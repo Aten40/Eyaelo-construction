@@ -136,11 +136,29 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
   if (path === "/api/admin/settings" && request.method === "PUT") {
     const body = await readBody(request);
-    const allowed = ["heroTitle", "heroText"];
+    const imageCategoryNames = [
+      "Residential Construction", "Commercial and Retail Buildings", "Healthcare and Institutional Facilities",
+      "Roads and Transport Infrastructure", "Industrial and Agro-Processing Facilities", "Property and Mixed-Use Developments",
+      "Water and Sanitation Infrastructure", "Bridges and Major Structures", "Warehousing and Logistics Facilities",
+      "Structural and Foundation Works", "Civil and Site Works", "Renovation and Refurbishment", "Roofing and Building Finishes",
+      "Reinforcement Steel Works", "Water, Drainage and Sanitation", "Construction Materials Sourcing",
+      "Site Clearance and Earthworks", "Concrete and Formwork Works", "Waterproofing and Damp Protection",
+      "Paving, Kerbs and External Works", "Project and Site Coordination", "Building Maintenance and Repairs"
+    ];
+    const allowed = ["heroTitle", "heroText", ...imageCategoryNames.map((name) => "categoryImage:" + name)];
     for (const key of allowed) {
       if (typeof body[key] === "string") {
+        const value = clean(body[key], key === "heroText" ? 600 : 1000);
+        if (key.startsWith("categoryImage:") && value) {
+          try {
+            const imageUrl = new URL(value);
+            if (imageUrl.protocol !== "https:") return json({ error: "Category image links must use HTTPS." }, 400);
+          } catch {
+            return json({ error: "Enter a valid direct HTTPS image URL." }, 400);
+          }
+        }
         await env.DB.prepare("INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')")
-          .bind(key, clean(body[key], key === "heroText" ? 600 : 160)).run();
+          .bind(key, value).run();
       }
     }
     return json({ ok: true });
