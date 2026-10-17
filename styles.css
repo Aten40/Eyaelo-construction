@@ -619,3 +619,13 @@ footer a:hover{color:#e1bb60}
 .service-long-grid article p{padding:0 22px;margin-bottom:22px;}
 .service-long-grid article>a{margin:auto 22px 0;align-self:flex-start;}
 @media(max-width:700px){.service-long-grid .category-image{height:175px}.service-long-grid article .number{top:189px}}
+
+
+/* Admin category photo manager */
+.category-image-editor{margin-top:18px}
+.category-image-editor>p{margin:0;color:var(--muted);line-height:1.6}
+.category-image-group{border-top:1px solid var(--line);padding-top:16px;display:grid;gap:14px}
+.category-image-group h3{margin:0;color:var(--navy);font-size:18px}
+.category-image-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,150px);gap:12px;align-items:center}
+.category-image-edit-row img{display:block;width:100%;height:90px;object-fit:cover;border-radius:8px;background:#edf1f5;border:1px solid var(--line)}
+@media(max-width:520px){.category-image-edit-row{grid-template-columns:1fr}.category-image-edit-row img{height:150px;max-width:100%}}
