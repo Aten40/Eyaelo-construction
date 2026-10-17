@@ -53,7 +53,9 @@ function Construction(){const displayedProjects:[string,string][]=[
  ["Roads and Transport Infrastructure","Roads, access roads, driveways, drainage works and supporting transport infrastructure."],
  ["Industrial and Agro-Processing Facilities","Factories, workshops, warehouses, production buildings, farm facilities and agro-processing plants."],
  ["Property and Mixed-Use Developments","Plazas and integrated developments combining residential, retail, office and other commercial spaces."],
- ["Water and Sanitation Infrastructure","Water supply systems, sanitation facilities, wastewater infrastructure and related civil infrastructure."]
+ ["Water and Sanitation Infrastructure","Water supply systems, sanitation facilities, wastewater infrastructure and related civil infrastructure."],
+ ["Bridges and Major Structures","Bridges, culverts, major structural works and related civil infrastructure for transport and development projects."],
+ ["Warehousing and Logistics Facilities","Warehouses, distribution centres, logistics buildings and storage facilities for businesses and supply-chain operations."],
  ];return <StandardPage eyebrow="CONSTRUCTION" title="Construction projects and developments"><p className="lead">Eyaelo Construction Ltd undertakes construction projects across residential, commercial, institutional, industrial and civil infrastructure sectors. Explore the types of developments we build and contact our team to discuss your project.</p><div className="service-long-grid">{displayedProjects.map(([t,d],i)=><article key={t}><div className="icon"><Building2/></div><span className="number">{String(i+1).padStart(2,'0')}</span><h3>{t}</h3><p>{d}</p><Link to="/quote">Discuss your project <ArrowRight size={16}/></Link></article>)}</div><CTA>Request a Construction Quote</CTA></StandardPage>}
 function Services(){const displayedServices:[string,string][]=[
  ["Structural and Foundation Works","Foundation construction, reinforced-concrete works, structural frames, columns, beams, slabs and retaining walls."],
@@ -63,6 +65,10 @@ function Services(){const displayedServices:[string,string][]=[
  ["Reinforcement Steel Works","Reinforcement-steel supply coordination and related works in line with project drawings and specifications."],
  ["Water, Drainage and Sanitation","Construction of drainage networks, water supply systems, sanitation facilities and wastewater infrastructure."],
  ["Construction Materials Sourcing","Building-material sourcing, supplier quotations, procurement coordination and delivery arrangements."],
+ ["Site Clearance and Earthworks","Site clearing, excavation, ground preparation, filling and compaction for building and civil construction projects."],
+ ["Concrete and Formwork Works","Concrete placement, formwork and reinforced-concrete elements for foundations, slabs, beams, columns and other structural works."],
+ ["Waterproofing and Damp Protection","Waterproofing and moisture-protection works for foundations, roofs, wet areas and other building elements."],
+ ["Paving, Kerbs and External Works","Paved surfaces, kerbs, walkways, driveways and associated external works around buildings and developments."],
  ["Project and Site Coordination","Coordination of construction materials, delivery schedules, site requirements and project-related activities."],
  ["Building Maintenance and Repairs","Planned maintenance, building repairs and improvement works for residential, commercial and institutional properties."]
  ];return <StandardPage eyebrow="SERVICES" title="Construction services and project support"><p className="lead">Eyaelo Construction Ltd provides practical construction services and project support for building and infrastructure developments. Explore our service areas and contact our team to discuss the work required for your project.</p><div className="service-long-grid">{displayedServices.map(([t,d],i)=><article key={t}><div className="icon"><Building2/></div><span className="number">{String(i+1).padStart(2,'0')}</span><h3>{t}</h3><p>{d}</p><Link to="/quote">Discuss your project <ArrowRight size={16}/></Link></article>)}</div></StandardPage>}
