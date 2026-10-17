@@ -153,6 +153,7 @@ function Careers(){
   e.preventDefault();
   const form=e.currentTarget;
   const values=new FormData(form);
+  values.set('type','career');
   const cv=values.get('cv');
   if(cv instanceof File && cv.size>1024*1024){setError('Your CV must be 1 MB or smaller.');return;}
   setBusy(true);setError('');
