@@ -610,3 +610,12 @@ footer a:hover{color:#e1bb60}
     font-size: 15px;
   }
 }
+
+/* Photography-led category cards for Construction and Services */
+.service-long-grid article{overflow:hidden;padding:0 0 22px;position:relative;display:flex;flex-direction:column;}
+.service-long-grid .category-image{display:block;width:100%;height:190px;object-fit:cover;background:#eef1f4;}
+.service-long-grid article .number{top:204px;right:16px;z-index:1;background:rgba(255,255,255,.94);padding:5px 8px;border-radius:5px;color:#4b5563;}
+.service-long-grid article h3{padding:0 22px;margin:28px 0 10px;}
+.service-long-grid article p{padding:0 22px;margin-bottom:22px;}
+.service-long-grid article>a{margin:auto 22px 0;align-self:flex-start;}
+@media(max-width:700px){.service-long-grid .category-image{height:175px}.service-long-grid article .number{top:189px}}
