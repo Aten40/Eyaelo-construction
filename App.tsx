@@ -48,6 +48,36 @@ function videoEmbedUrl(raw:string){
 function VideoCards({items}:{items:DynamicContent['videos']}){return <div className="video-grid">{items.map(v=>{const src=videoEmbedUrl(v.video_url);return <article className="video-card" key={v.id}><div className="video-frame">{src?<iframe src={src} title={v.title} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/>:<p>Video link unavailable.</p>}</div><div className="video-copy"><h3>{v.title}</h3>{v.description&&<p>{v.description}</p>}</div></article>})}</div>}
 function Videos(){const content=usePublicContent();const items=content.videos.filter(v=>v.placement==='website'||v.placement==='both');return <StandardPage eyebrow="VIDEO GALLERY" title="See Eyaelo in action"><p className="lead">Construction insights, project highlights and helpful building-material guides.</p>{items.length?<VideoCards items={items}/>:<div className="empty-project large"><HardHat size={48}/><h2>Our video gallery is getting ready.</h2><p>Videos will appear here once they are added and published by the Eyaelo admin team.</p></div>}</StandardPage>}
 function StandardPage({title,eyebrow,children}:{title:string;eyebrow:string;children:React.ReactNode}){return <section className="section"><div className="container narrow"><span className="eyebrow dark">{eyebrow}</span><h1 className="page-title">{title}</h1>{children}</div></section>}
+
+function categoryImage(title:string){
+ const images:Record<string,string>={
+  'Residential Construction':'photo-1600585154340-be6161a56a0c',
+  'Commercial and Retail Buildings':'photo-1486406146926-c627a92ad1ab',
+  'Healthcare and Institutional Facilities':'photo-1587351021759-3e566b6af7cc',
+  'Roads and Transport Infrastructure':'photo-1519501025264-65ba15a82390',
+  'Industrial and Agro-Processing Facilities':'photo-1581091226825-a6a2a5aee158',
+  'Property and Mixed-Use Developments':'photo-1497366754035-f200968a6e72',
+  'Water and Sanitation Infrastructure':'photo-1516937941344-00b4e0337589',
+  'Bridges and Major Structures':'photo-1558618666-fcd25c85cd64',
+  'Warehousing and Logistics Facilities':'photo-1586528116311-ad8dd3c8310d',
+  'Structural and Foundation Works':'photo-1504307651254-35680f356dfd',
+  'Civil and Site Works':'photo-1503387762-5929b558c8fe',
+  'Renovation and Refurbishment':'photo-1484154218962-a197022b5858',
+  'Roofing and Building Finishes':'photo-1635424710928-3c0e9c1f2f2d',
+  'Reinforcement Steel Works':'photo-1517089596392-fb9a9033e05b',
+  'Water, Drainage and Sanitation':'photo-1621905251189-08b45d6a269e',
+  'Construction Materials Sourcing':'photo-1504307651254-35680f356dfd',
+  'Site Clearance and Earthworks':'photo-1516937941344-00b4e0337589',
+  'Concrete and Formwork Works':'photo-1517581177682-a085bb7ffb15',
+  'Waterproofing and Damp Protection':'photo-1621905251918-48416bd8575a',
+  'Paving, Kerbs and External Works':'photo-1517581177682-a085bb7ffb15',
+  'Project and Site Coordination':'photo-1503387762-5929b558c8fe',
+  'Building Maintenance and Repairs':'photo-1484154218962-a197022b5858'
+ };
+ const id=images[title] || 'photo-1504307651254-35680f356dfd';
+ return 'https://images.unsplash.com/'+id+'?auto=format&fit=crop&w=900&q=75';
+}
+
 function Construction(){const displayedProjects:[string,string][]=[
  ["Residential Construction","Houses, apartments, townhouses and residential estates, including new homes, extensions and residential developments."],
  ["Commercial and Retail Buildings","Offices, shops, business premises, retail centres and other commercial properties."],
@@ -58,7 +88,7 @@ function Construction(){const displayedProjects:[string,string][]=[
  ["Water and Sanitation Infrastructure","Water supply systems, sanitation facilities, wastewater infrastructure and related civil infrastructure."],
  ["Bridges and Major Structures","Bridges, culverts, major structural works and related civil infrastructure for transport and development projects."],
  ["Warehousing and Logistics Facilities","Warehouses, distribution centres, logistics buildings and storage facilities for businesses and supply-chain operations."],
- ];return <StandardPage eyebrow="CONSTRUCTION" title="Construction projects and developments"><p className="lead">Eyaelo Construction Ltd undertakes construction projects across residential, commercial, institutional, industrial and civil infrastructure sectors. Explore the types of developments we build and contact our team to discuss your project.</p><div className="service-long-grid">{displayedProjects.map(([t,d],i)=><article key={t}><div className="icon"><Building2/></div><span className="number">{String(i+1).padStart(2,'0')}</span><h3>{t}</h3><p>{d}</p><Link to="/quote">Discuss your project <ArrowRight size={16}/></Link></article>)}</div><CTA>Request a Construction Quote</CTA></StandardPage>}
+ ];return <StandardPage eyebrow="CONSTRUCTION" title="Construction projects and developments"><p className="lead">Eyaelo Construction Ltd undertakes construction projects across residential, commercial, institutional, industrial and civil infrastructure sectors. Explore the types of developments we build and contact our team to discuss your project.</p><div className="service-long-grid">{displayedProjects.map(([t,d],i)=><article key={t}><img className="category-image" src={categoryImage(t)} alt={t} loading="lazy"/><span className="number">{String(i+1).padStart(2,'0')}</span><h3>{t}</h3><p>{d}</p><Link to="/quote">Discuss your project <ArrowRight size={16}/></Link></article>)}</div><CTA>Request a Construction Quote</CTA></StandardPage>}
 function Services(){const displayedServices:[string,string][]=[
  ["Structural and Foundation Works","Foundation construction, reinforced-concrete works, structural frames, columns, beams, slabs and retaining walls."],
  ["Civil and Site Works","Site preparation, earthworks, access works, drainage and associated civil construction."],
