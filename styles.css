@@ -536,3 +536,21 @@ footer a:hover{color:#e1bb60}
   .hero{min-height:620px}
   .hero h1{font-size:clamp(48px,7.5vw,64px)}
 }
+
+/* Building-materials quotation journey and technical enquiry forms */
+.materials-process{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:34px 0 42px}
+.materials-process article{border:1px solid var(--line);border-radius:13px;background:#fff;padding:23px;box-shadow:0 7px 22px rgba(18,33,55,.04)}
+.materials-process article>span{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#f6efde;color:#8f6817;font-weight:850;margin-bottom:18px}
+.materials-process h3{font-size:18px;margin-bottom:9px;color:var(--ink)}
+.materials-process p,.section-intro{color:var(--muted);line-height:1.65;margin-bottom:0}
+.materials-subtitle{font-size:clamp(26px,3vw,34px)!important;margin-bottom:12px!important}
+.materials-quote-cta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;padding:28px;border:1px solid #eadfbe;border-radius:15px;background:linear-gradient(135deg,#fbf7eb,#fff)}
+.materials-quote-icon{display:grid;place-items:center;width:54px;height:54px;border-radius:13px;background:#f1e3bd;color:#8f6817}
+.materials-quote-cta h2{font-size:clamp(25px,3vw,34px)!important;margin:0 0 10px!important}
+.materials-quote-cta p,.materials-quote-cta li{color:#586579;line-height:1.65}
+.materials-quote-cta ul{padding-left:20px;margin:14px 0 22px}
+.form-intro{border:1px solid #eadfbe;background:#fbf7eb;border-radius:11px;padding:17px 19px;margin:20px 0 24px}
+.form-intro strong{color:#765713}
+.form-intro p{color:#5f6d80;line-height:1.65;margin:6px 0 0}
+.form .form-note{line-height:1.7}
+@media(max-width:700px){.materials-process{grid-template-columns:1fr}.materials-process article{padding:20px}.materials-quote-cta{grid-template-columns:1fr;padding:21px}.materials-quote-icon{width:48px;height:48px}}
