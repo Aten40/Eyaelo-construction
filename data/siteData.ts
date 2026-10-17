@@ -16,10 +16,6 @@ export const services: [string, string][] = [
 "Reinforcement-steel requirements and associated works, with bar sizes, grades, quantities and placement details confirmed against project documentation."
 ],
 [
-"Concrete Works",
-"Concrete-related works for foundations, slabs and structural elements, subject to specified strength requirements, mix details, placement conditions and quality checks."
-],
-[
 "Foundation and Substructure Works",
 "Foundation and below-ground construction requirements based on site information, approved design details and project-specific specifications."
 ],
