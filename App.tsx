@@ -51,33 +51,32 @@ function StandardPage({title,eyebrow,children}:{title:string;eyebrow:string;chil
 
 function categoryImage(title:string){
  const images:Record<string,string>={
-  'Residential Construction':'photo-1600585154340-be6161a56a0c',
+  'Residential Construction':'photo-1778438387124-b304a43a710b',
   'Commercial and Retail Buildings':'photo-1486406146926-c627a92ad1ab',
   'Healthcare and Institutional Facilities':'photo-1587351021759-3e566b6af7cc',
-  'Roads and Transport Infrastructure':'photo-1519501025264-65ba15a82390',
-  'Industrial and Agro-Processing Facilities':'photo-1581091226825-a6a2a5aee158',
-  'Property and Mixed-Use Developments':'photo-1497366754035-f200968a6e72',
-  'Water and Sanitation Infrastructure':'photo-1516937941344-00b4e0337589',
-  'Bridges and Major Structures':'photo-1558618666-fcd25c85cd64',
-  'Warehousing and Logistics Facilities':'photo-1586528116311-ad8dd3c8310d',
-  'Structural and Foundation Works':'photo-1504307651254-35680f356dfd',
-  'Civil and Site Works':'photo-1503387762-5929b558c8fe',
-  'Renovation and Refurbishment':'photo-1484154218962-a197022b5858',
-  'Roofing and Building Finishes':'photo-1635424710928-3c0e9c1f2f2d',
-  'Reinforcement Steel Works':'photo-1517089596392-fb9a9033e05b',
-  'Water, Drainage and Sanitation':'photo-1621905251189-08b45d6a269e',
-  'Construction Materials Sourcing':'photo-1504307651254-35680f356dfd',
-  'Site Clearance and Earthworks':'photo-1516937941344-00b4e0337589',
-  'Concrete and Formwork Works':'photo-1517581177682-a085bb7ffb15',
-  'Waterproofing and Damp Protection':'photo-1621905251918-48416bd8575a',
-  'Paving, Kerbs and External Works':'photo-1517581177682-a085bb7ffb15',
-  'Project and Site Coordination':'photo-1503387762-5929b558c8fe',
-  'Building Maintenance and Repairs':'photo-1484154218962-a197022b5858'
+  'Roads and Transport Infrastructure':'photo-1783753444957-cd4edec5e685',
+  'Industrial and Agro-Processing Facilities':'photo-1764470738268-99e79e2c8b05',
+  'Property and Mixed-Use Developments':'photo-1486406146926-c627a92ad1ab',
+  'Water and Sanitation Infrastructure':'photo-1751054619908-65d27a503ce8',
+  'Bridges and Major Structures':'photo-1786471919740-ef5e4b5504da',
+  'Warehousing and Logistics Facilities':'photo-1764470738268-99e79e2c8b05',
+  'Structural and Foundation Works':'photo-1777919393730-463e2c0b7f4c',
+  'Civil and Site Works':'photo-1751054619908-65d27a503ce8',
+  'Renovation and Refurbishment':'photo-1653280668407-50b18ec4ef42',
+  'Roofing and Building Finishes':'photo-1763665814485-a0a1b6f51ed7',
+  'Reinforcement Steel Works':'photo-1653280668407-50b18ec4ef42',
+  'Water, Drainage and Sanitation':'photo-1751054619908-65d27a503ce8',
+  'Construction Materials Sourcing':'photo-1764470738268-99e79e2c8b05',
+  'Site Clearance and Earthworks':'photo-1751054619908-65d27a503ce8',
+  'Concrete and Formwork Works':'photo-1777919393730-463e2c0b7f4c',
+  'Waterproofing and Damp Protection':'photo-1763665814485-a0a1b6f51ed7',
+  'Paving, Kerbs and External Works':'photo-1783753444957-cd4edec5e685',
+  'Project and Site Coordination':'photo-1653280668407-50b18ec4ef42',
+  'Building Maintenance and Repairs':'photo-1763665814485-a0a1b6f51ed7'
  };
- const id=images[title] || 'photo-1504307651254-35680f356dfd';
+ const id=images[title] || 'photo-1777919393730-463e2c0b7f4c';
  return 'https://images.unsplash.com/'+id+'?auto=format&fit=crop&w=900&q=75';
 }
-
 function Construction(){const displayedProjects:[string,string][]=[
  ["Residential Construction","Houses, apartments, townhouses and residential estates, including new homes, extensions and residential developments."],
  ["Commercial and Retail Buildings","Offices, shops, business premises, retail centres and other commercial properties."],
