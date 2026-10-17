@@ -123,12 +123,12 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const rows = await env.DB.prepare("SELECT e.id, e.type, e.name, e.company, e.phone, e.email, e.subject, e.details, e.status, e.created_at, c.file_name AS cv_file_name FROM enquiries e LEFT JOIN career_cvs c ON c.enquiry_id = e.id ORDER BY e.id DESC LIMIT 200").all();
     return json(rows.results || []);
   }
-  const cvMatch = path.match(/^\\/api\\/admin\\/enquiries\\/(\\d+)\\/cv$/);
+  const cvMatch = path.match(/^\/api\/admin\/enquiries\/(\d+)\/cv$/);
   if (cvMatch && request.method === "GET") {
     await env.DB.prepare("CREATE TABLE IF NOT EXISTS career_cvs (enquiry_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(enquiry_id) REFERENCES enquiries(id) ON DELETE CASCADE)").run();
     const row = await env.DB.prepare("SELECT c.file_name, c.content_type, c.file_data FROM career_cvs c JOIN enquiries e ON e.id = c.enquiry_id WHERE c.enquiry_id = ? AND e.type = 'career'").bind(Number(cvMatch[1])).first();
     if (!row) return json({ error: "No CV file is attached to this application." }, 404);
-    const safeName = String(row.file_name || "cv").replace(/[\\r\\n"]/g, "_");
+    const safeName = String(row.file_name || "cv").replace(/[\r\n"]/g, "_");
     return new Response(row.file_data, { status: 200, headers: { "content-type": row.content_type || "application/octet-stream", "content-disposition": "attachment; filename=\"" + safeName + "\"", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
   }
   const statusMatch = path.match(/^\/api\/admin\/enquiries\/(\d+)$/);
@@ -316,8 +316,8 @@ export default {
           const fields: Array<[string, string]> = [["Name", "name"], ["Email", "email"], ["Phone", "phone"], ["Location", "location"], ["Area of interest", "role"], ["Relevant experience", "experience"], ["Availability", "availability"], ["Message", "message"], ["CV or portfolio link", "cvLink"]];
           let details = clean(body.details, 6000);
           if (type === "career") {
-            details = fields.map(([label, key]) => { const value = clean(body[key], key === "message" ? 3000 : 1000); return value ? label + ": " + value : ""; }).filter(Boolean).join("\\n");
-            if (cvFile) details += (details ? "\\n" : "") + "CV attached: " + cvName;
+            details = fields.map(([label, key]) => { const value = clean(body[key], key === "message" ? 3000 : 1000); return value ? label + ": " + value : ""; }).filter(Boolean).join("\n");
+            if (cvFile) details += (details ? "\n" : "") + "CV attached: " + cvName;
           }
           await env.DB.prepare("CREATE TABLE IF NOT EXISTS career_cvs (enquiry_id INTEGER PRIMARY KEY, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(enquiry_id) REFERENCES enquiries(id) ON DELETE CASCADE)").run();
           const saved = await env.DB.prepare("INSERT INTO enquiries (type, name, company, phone, email, subject, details) VALUES (?, ?, ?, ?, ?, ?, ?)")
