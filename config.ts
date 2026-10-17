@@ -2,12 +2,12 @@ export const STORE_ENABLED = false
 
 export const siteConfig = {
   name: 'Eyaelo Construction Ltd',
-  tagline: 'Construction Services in Uganda & the Region',
-  heroTitle: 'Building Your Vision. Creating Lasting Value.',
-  heroText: 'Professional construction solutions for residential, commercial, institutional and civil projects. Based in Uganda, Eyaelo welcomes regional enquiries, subject to service availability.',
+  tagline: 'Building Construction, Civil Works & Materials Procurement in Uganda',
+  heroTitle: 'Building Uganda’s Future with Technical Purpose.',
+  heroText: 'Construction services and building-materials procurement for residential, commercial and institutional requirements. From scope definition and material specifications to supplier coordination and delivery planning, Eyaelo welcomes project enquiries across Uganda, subject to scope and availability.',
   domain: 'YOUR_DOMAIN_HERE',
   whatsappNumber: '256782383057',
-  whatsappMessage: 'Hello Eyaelo Construction Ltd, I would like to enquire about your construction services/building materials.',
+  whatsappMessage: 'Hello Eyaelo Construction Ltd, I would like to discuss a construction project or request a building-materials quotation. Please advise what information you need.',
   facebookUrl: 'https://www.facebook.com/share/1FPf3ixReg/',
   contact: {
     phone: '+256 782 383057',
