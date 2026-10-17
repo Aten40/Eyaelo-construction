@@ -560,3 +560,9 @@ footer a:hover{color:#e1bb60}
 .services-view-all{font-weight:900!important;color:#14243a!important;background:#c69a35!important;border:1px solid #c69a35!important;box-shadow:0 6px 18px rgba(130,91,13,.22);white-space:nowrap}
 .services-view-all:hover{background:#e0b94f!important;border-color:#e0b94f!important;transform:translateY(-2px);box-shadow:0 9px 22px rgba(130,91,13,.3)}
 @media(max-width:600px){.services-view-all{white-space:normal;justify-content:center;width:100%}}
+
+/* Clear, scannable service highlights on the homepage */
+.service-bullets{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.service-bullets li{position:relative;padding-left:19px;color:#435064;font-size:13px;line-height:1.5}
+.service-bullets li:before{content:"";position:absolute;left:2px;top:.58em;width:7px;height:7px;border-radius:50%;background:#c69a35}
+.service-card .service-bullets{border-top:1px solid #edf0f4;padding-top:13px}
