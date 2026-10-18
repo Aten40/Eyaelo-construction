@@ -63,7 +63,7 @@ function categoryImage(title:string, settings:Record<string,string> = {}){
   'Renovation and Refurbishment':'photo-1600607687939-ce8a6c25118c',
   'Roofing and Building Finishes':'photo-1635424710928-6b4c2c0c8e11',
   'Reinforcement Steel Works':'photo-1504917595217-d4dc5ebe6122',
-  'Water, Drainage and Sanitation':'https://images.pexels.com/photos/2760243/pexels-photo-2760243.jpeg?auto=compress&cs=tinysrgb&w=900',
+  'Water, Drainage and Sanitation':'https://images.pexels.com/photos/37627673/pexels-photo-37627673.jpeg?auto=compress&cs=tinysrgb&w=900',
   'Construction Materials Sourcing':'photo-1530124566582-a618bc2615dc',
   'Site Clearance and Earthworks':'photo-1516937941344-00b4e0337589',
   'Concrete and Formwork Works':'https://static.tildacdn.com/tild3865-6162-4332-b366-616635393339/image.png',
