@@ -55,7 +55,7 @@ function categoryImage(title:string, settings:Record<string,string> = {}){
   'Roads and Transport Infrastructure':'https://image.made-in-china.com/251f0j00zRYUklQITEVw/made-in-china.jpg',
   'Industrial and Agro-Processing Facilities':'photo-1581091226825-a6a2a5aee158',
   'Property and Mixed-Use Developments':'photo-1497366754035-f200968a6e72',
-  'Water and Sanitation Infrastructure':'photo-1541911087797-f3a4a3e7c2d1',
+  'Water and Sanitation Infrastructure':'https://images.pexels.com/photos/37627673/pexels-photo-37627673.jpeg?auto=compress&cs=tinysrgb&w=900',
   'Bridges and Major Structures':'photo-1517089596392-fb9a9033e05b',
   'Warehousing and Logistics Facilities':'photo-1586528116311-ad8dd3c8310d',
   'Structural and Foundation Works':'photo-1503387762-592deb58ef4e',
