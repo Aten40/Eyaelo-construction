@@ -349,7 +349,7 @@ export default {
           let previewFile: File | null = null;
           if (multipart) {
             const length = Number(request.headers.get("content-length") || "0");
-            if (length > 21_000_000) return json({ error: "The total upload is too large. Design files must be 20 MB or smaller." }, 413, headers);
+            if (length > 29_000_000) return json({ error: "The total upload is too large. Design files must be 20 MB or smaller." }, 413, headers);
             const form = await request.formData();
             body = Object.fromEntries(Array.from(form.entries()).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
             const uploaded = form.get("design_file");
