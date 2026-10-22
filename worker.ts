@@ -44,6 +44,18 @@ async function readBody(request: Request) {
 
 const designCategories = ["Residential", "Commercial", "Education", "Healthcare", "Infrastructure", "Other projects"];
 
+async function ensureDesignReviewFields(env: Env) {
+  const columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+  if (!(columns.results || []).some((column: { name?: string }) => column.name === "review_feedback")) {
+    try {
+      await env.DB.prepare("ALTER TABLE designs ADD COLUMN review_feedback TEXT NOT NULL DEFAULT ''").run();
+    } catch (error) {
+      const refreshed = await env.DB.prepare("PRAGMA table_info(designs)").all();
+      if (!(refreshed.results || []).some((column: { name?: string }) => column.name === "review_feedback")) throw error;
+    }
+  }
+}
+
 async function ensureDesignSubmissionFiles(env: Env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
   const columns = await env.DB.prepare("PRAGMA table_info(design_submission_files)").all();
@@ -142,8 +154,45 @@ async function adminApi(request: Request, env: Env, url: URL) {
 
   if (path === "/api/admin/design-submissions" && request.method === "GET") {
     await ensureDesignSubmissionFiles(env);
-    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
+    await ensureDesignReviewFields(env);
+    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_feedback, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
+  }
+  const reviewMatch = path.match(/^\\/api\\/admin\\/design-submissions\\/(\\d+)\\/review$/);
+  if (reviewMatch && request.method === "POST") {
+    await ensureDesignSubmissionFiles(env);
+    await ensureDesignReviewFields(env);
+    const body = await readBody(request);
+    const id = Number(reviewMatch[1]);
+    const action = clean(body.action, 30);
+    const feedback = clean(body.feedback, 3000);
+    const design = await env.DB.prepare("SELECT id, title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status FROM designs WHERE id = ?").bind(id).first();
+    if (!design) return json({ error: "Design submission not found." }, 404);
+    if (action === "approve") {
+      const preview = await env.DB.prepare("SELECT object_key, file_name, content_type FROM design_submission_files WHERE design_id = ? AND file_kind = 'preview' ORDER BY id DESC LIMIT 1").bind(id).first();
+      if (!preview) return json({ error: "This submission has no preview image. Ask the designer to upload a preview image before approval." }, 400);
+      if (!env.MEDIA || typeof env.MEDIA.get !== "function" || typeof env.MEDIA.put !== "function") return json({ error: "Cloudflare image storage is unavailable." }, 503);
+      const object = await env.MEDIA.get(preview.object_key);
+      if (!object) return json({ error: "The private preview image could not be found." }, 404);
+      const ext = String(preview.file_name || "").toLowerCase().split(".").pop();
+      if (!["jpg","jpeg","png","webp","gif"].includes(ext)) return json({ error: "The preview image file type is not supported for publication." }, 400);
+      const key = "uploads/designs/" + id + "-" + crypto.randomUUID() + "." + (ext === "jpeg" ? "jpg" : ext);
+      await env.MEDIA.put(key, object.body, { httpMetadata: { contentType: preview.content_type || "image/jpeg", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { designId: String(id), title: String(design.title || ""), approvedByAdmin: "true" } });
+      const imageUrl = new URL(request.url).origin + "/media/" + key;
+      await env.DB.prepare("UPDATE designs SET image_url = ?, status = 'published', review_feedback = '', updated_at = datetime('now') WHERE id = ?").bind(imageUrl, id).run();
+      return json({ ok: true, status: "published", image_url: imageUrl });
+    }
+    if (action === "request_changes") {
+      if (!feedback) return json({ error: "Write clear feedback explaining what the designer should improve." }, 400);
+      await env.DB.prepare("UPDATE designs SET status = 'needs_revision', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
+      return json({ ok: true, status: "needs_revision", feedback, designer_email: design.designer_email, title: design.title });
+    }
+    if (action === "decline") {
+      if (!feedback) return json({ error: "Please record a reason for declining this submission." }, 400);
+      await env.DB.prepare("UPDATE designs SET status = 'rejected', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
+      return json({ ok: true, status: "rejected", feedback, designer_email: design.designer_email, title: design.title });
+    }
+    return json({ error: "Choose approve, request_changes or decline." }, 400);
   }
   const privateFileMatch = path.match(/^\/api\/admin\/design-submissions\/(\d+)\/files\/(\d+)$/);
   if (privateFileMatch && request.method === "GET") {
@@ -156,6 +205,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     return new Response(object.body, { status: 200, headers: { "content-type": "application/octet-stream", "content-disposition": "attachment; filename=\"" + safeName + "\"", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
   }
   if (path === "/api/admin/designs" && request.method === "GET") {
+    await ensureDesignReviewFields(env);
     const rows = await env.DB.prepare("SELECT * FROM designs ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END, id DESC").all();
     return json(rows.results || []);
   }
@@ -175,7 +225,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const title = clean(body.title, 160), category = clean(body.category, 50), status = clean(body.status, 20);
     if (!title) return json({ error: "Design title is required." }, 400);
     if (!designCategories.includes(category)) return json({ error: "Choose a valid design category." }, 400);
-    if (!["pending", "published", "rejected"].includes(status)) return json({ error: "Choose pending, published or rejected status." }, 400);
+    if (!["pending", "published", "rejected", "needs_revision"].includes(status)) return json({ error: "Choose pending, published, rejected or needs_revision status." }, 400);
     await env.DB.prepare("UPDATE designs SET title=?, description=?, category=?, designer_name=?, designer_email=?, designer_phone=?, portfolio_url=?, image_url=?, price_label=?, rights_confirmed=?, status=?, updated_at=datetime('now') WHERE id=?")
       .bind(title, clean(body.description, 3000), category, clean(body.designer_name, 160), clean(body.designer_email, 200), clean(body.designer_phone, 80), clean(body.portfolio_url, 1000), clean(body.image_url, 1000), clean(body.price_label, 100) || "Enquire for price", body.rights_confirmed ? 1 : 0, status, id).run();
     return json({ ok: true });
