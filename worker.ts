@@ -181,7 +181,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
       if (!env.MEDIA || typeof env.MEDIA.get !== "function" || typeof env.MEDIA.put !== "function") return json({ error: "Cloudflare image storage is unavailable." }, 503);
       const object = await env.MEDIA.get(preview.object_key);
       if (!object) return json({ error: "The private preview image could not be found." }, 404);
-      const ext = String(preview.file_name || "").toLowerCase().split(".").pop();
+      const ext = String(preview.file_name || "").toLowerCase().split(".").pop() || "";
       if (!["jpg","jpeg","png","webp","gif"].includes(ext)) return json({ error: "The preview image file type is not supported for publication." }, 400);
       const key = "uploads/designs/" + id + "-" + crypto.randomUUID() + "." + (ext === "jpeg" ? "jpg" : ext);
       await env.MEDIA.put(key, object.body, { httpMetadata: { contentType: preview.content_type || "image/jpeg", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { designId: String(id), title: String(design.title || ""), approvedByAdmin: "true" } });
