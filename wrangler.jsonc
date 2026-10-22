@@ -18,6 +18,12 @@
       "database_id": "de24d3b7-14a5-403d-8d63-888c5d6bdca5"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "eyaelo-construction-storage"
+    }
+  ],
   "secrets": {
     "required": [
       "ADMIN_PASSWORD"
