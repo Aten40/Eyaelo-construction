@@ -71,6 +71,7 @@ export default function AdminPage() {
   const [record, setRecord] = useState<Row>(emptyFor('products'));
   const [settings, setSettings] = useState<Record<string, string>>({ heroTitle: '', heroText: '' });
   const [busy, setBusy] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState('');
   const [imageGroup, setImageGroup] = useState<'Construction' | 'Services'>('Construction');
 
   const load = async (selected: Tab = tab) => {
@@ -147,6 +148,37 @@ export default function AdminPage() {
     try { await api('/api/admin/logout', { method: 'POST' }); } finally { setAuthenticated(false); setRows([]); setRecord(emptyFor('products')); }
   };
 
+  const uploadImage = async (file: File, category: string, onUploaded: (url: string) => void, title = '') => {
+    setUploadingImage(category); setError(''); setNotice('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('category', category);
+      form.append('title', title);
+      const response = await fetch('/api/admin/uploads', { method: 'POST', body: form, credentials: 'same-origin' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Image upload failed.');
+      onUploaded(data.url);
+      setNotice('Image uploaded to Cloudflare storage. Save your changes to publish it.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Image upload failed.');
+    } finally {
+      setUploadingImage('');
+    }
+  };
+
+  const imageUploadField = (category: string, onUploaded: (url: string) => void, title = '') => (
+    <label className="admin-field image-upload-field">
+      <span>{uploadingImage === category ? 'Uploading image…' : 'Upload image from phone gallery'}</span>
+      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={Boolean(uploadingImage)} onChange={e => {
+        const file = e.currentTarget.files?.[0];
+        e.currentTarget.value = '';
+        if (file) void uploadImage(file, category, onUploaded, title);
+      }} />
+      <small className="admin-hint">JPG, PNG, WEBP or GIF · maximum 8 MB</small>
+    </label>
+  );
+
   const field = (label: string, key: string, multiline = false, placeholder = '') => (
     <label className="admin-field" key={key}>
       <span>{label}</span>
@@ -190,7 +222,8 @@ export default function AdminPage() {
               const key = 'categoryImage:' + item.name;
               const value = settings[key] || '';
               return <div className="category-image-edit-row" key={item.name}>
-                <label className="admin-field"><span>{item.name}</span><input type="url" inputMode="url" value={value} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder="https://… direct image URL" /></label>
+                <label className="admin-field"><span>{item.name} image URL</span><input type="url" inputMode="url" value={value} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder="Paste a direct HTTPS image URL or upload below" /></label>
+                {imageUploadField(item.group.toLowerCase(), url => setSettings(current => ({ ...current, [key]: url })), item.name)}
                 {value && <img src={value} alt={'Preview: ' + item.name} loading="lazy" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />}
               </div>;
             })}
@@ -227,7 +260,7 @@ export default function AdminPage() {
               {field('Design title', 'title')}
               {field('Description', 'description', true)}
               <label className="admin-field"><span>Category</span><select value={record.category || 'Residential'} onChange={e => setRecord({ ...record, category: e.target.value })}>{['Residential','Commercial','Education','Healthcare','Infrastructure','Other projects'].map(x => <option key={x}>{x}</option>)}</select></label>
-              {field('Designer name', 'designer_name')}{field('Designer email (private)', 'designer_email')}{field('Designer phone (private)', 'designer_phone')}{field('Portfolio URL', 'portfolio_url')}{field('Preview image URL (storage upload later)', 'image_url')}{field('Price label', 'price_label')}
+              {field('Designer name', 'designer_name')}{field('Designer email (private)', 'designer_email')}{field('Designer phone (private)', 'designer_phone')}{field('Portfolio URL', 'portfolio_url')}{field('Preview image URL', 'image_url')}{imageUploadField('designs', url => setRecord(current => ({ ...current, image_url: url })), record.title || 'Design preview')}{field('Price label', 'price_label')}
               <label className="admin-field"><span>Review status</span><select value={record.status || 'pending'} onChange={e => setRecord({ ...record, status: e.target.value })}><option value="pending">Pending review</option><option value="published">Published</option><option value="rejected">Rejected</option></select></label>
               <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.rights_confirmed)} onChange={e => setRecord({ ...record, rights_confirmed: e.target.checked })}/><span>Designer confirms ownership or permission to submit</span></label>
               <p className="admin-hint">Image and design-file uploads will be connected when storage is enabled. Only published designs appear in the public catalogue.</p>
@@ -237,10 +270,10 @@ export default function AdminPage() {
               {field('Description', 'description', true)}
               <label className="admin-field"><span>Category</span><select value={record.category || 'Other Building Materials'} onChange={e => setRecord({ ...record, category: e.target.value })}>{['Sand','Bricks and Blocks','Cement','Lime','Aggregates','Hardcore','Building Stones','Reinforcement Steel','Roofing Materials','Concrete Materials','Other Building Materials'].map(x => <option key={x}>{x}</option>)}</select></label>
               <div className="admin-two-col">{field('Price (optional, UGX)', 'price', false, 'Leave blank to quote on request')}{field('Unit (e.g. bag, tonne)', 'unit')}</div>
-              {field('Photo URL', 'image_url', false, 'Paste an image URL')}
+              {field('Photo URL', 'image_url', false, 'Paste an image URL')}{imageUploadField('products', url => setRecord(current => ({ ...current, image_url: url })), record.name || 'Building material')}
             </>}
             {tab === 'services' && <>{field('Service name', 'name')}{field('Description', 'description', true)}{field('Display order', 'sort_order')}</>}
-            {tab === 'projects' && <>{field('Project title', 'title')}{field('Description', 'description', true)}{field('Location (optional)', 'location')}{field('Photo URL', 'image_url', false, 'Paste an image URL')}</>}
+            {tab === 'projects' && <>{field('Project title', 'title')}{field('Description', 'description', true)}{field('Location (optional)', 'location')}{field('Photo URL', 'image_url', false, 'Paste an image URL')}{imageUploadField('projects', url => setRecord(current => ({ ...current, image_url: url })), record.title || 'Construction project')}</>}
             {tab === 'videos' && <>{field('Video title', 'title')}{field('Description', 'description', true)}{field('YouTube or Vimeo link', 'video_url', false, 'Paste a YouTube or Vimeo video link')}<label className="admin-field"><span>Show video in</span><select value={record.placement || 'website'} onChange={e => setRecord({ ...record, placement: e.target.value })}><option value="website">Main website</option><option value="shop">Building materials shop</option><option value="both">Website and shop</option></select></label><p className="admin-hint">Use a public YouTube or Vimeo video link. The website embeds the video; it does not upload large video files directly.</p></>}
             <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.published)} onChange={e => setRecord({ ...record, published: e.target.checked })}/><span>Publish this item on the public website</span></label>
             <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving…' : record.id ? 'Save changes' : 'Add item'}</button>
