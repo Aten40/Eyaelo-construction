@@ -169,6 +169,10 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
   const designDelete = path.match(/^\/api\/admin\/designs\/(\d+)$/);
   if (designDelete && request.method === "DELETE") {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    const files = await env.DB.prepare("SELECT object_key FROM design_submission_files WHERE design_id = ?").bind(Number(designDelete[1])).all();
+    for (const file of files.results || []) if (env.MEDIA && typeof env.MEDIA.delete === "function") await env.MEDIA.delete(file.object_key);
+    await env.DB.prepare("DELETE FROM design_submission_files WHERE design_id = ?").bind(Number(designDelete[1])).run();
     await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(Number(designDelete[1])).run();
     return json({ ok: true });
   }
