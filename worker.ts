@@ -44,6 +44,19 @@ async function readBody(request: Request) {
 
 const designCategories = ["Residential", "Commercial", "Education", "Healthcare", "Infrastructure", "Other projects"];
 
+async function ensureDesignSubmissionFiles(env: Env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+  const columns = await env.DB.prepare("PRAGMA table_info(design_submission_files)").all();
+  if (!(columns.results || []).some((column: { name?: string }) => column.name === "file_kind")) {
+    try {
+      await env.DB.prepare("ALTER TABLE design_submission_files ADD COLUMN file_kind TEXT NOT NULL DEFAULT 'architectural'").run();
+    } catch (error) {
+      const refreshed = await env.DB.prepare("PRAGMA table_info(design_submission_files)").all();
+      if (!(refreshed.results || []).some((column: { name?: string }) => column.name === "file_kind")) throw error;
+    }
+  }
+}
+
 async function content(env: Env) {
   const [services, products, videos, projects, settingRows] = await Promise.all([
     env.DB.prepare("SELECT id, name, description, sort_order FROM services WHERE published = 1 ORDER BY sort_order, id").all(),
@@ -128,13 +141,13 @@ async function adminApi(request: Request, env: Env, url: URL) {
 
 
   if (path === "/api/admin/design-submissions" && request.method === "GET") {
-    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    await ensureDesignSubmissionFiles(env);
     const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
   }
   const privateFileMatch = path.match(/^\/api\/admin\/design-submissions\/(\d+)\/files\/(\d+)$/);
   if (privateFileMatch && request.method === "GET") {
-    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    await ensureDesignSubmissionFiles(env);
     const row = await env.DB.prepare("SELECT object_key, file_name FROM design_submission_files WHERE id = ? AND design_id = ?").bind(Number(privateFileMatch[2]), Number(privateFileMatch[1])).first();
     if (!row || !env.MEDIA || typeof env.MEDIA.get !== "function") return json({ error: "File not found." }, 404);
     const object = await env.MEDIA.get(row.object_key);
@@ -169,7 +182,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
   const designDelete = path.match(/^\/api\/admin\/designs\/(\d+)$/);
   if (designDelete && request.method === "DELETE") {
-    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    await ensureDesignSubmissionFiles(env);
     const files = await env.DB.prepare("SELECT object_key FROM design_submission_files WHERE design_id = ?").bind(Number(designDelete[1])).all();
     for (const file of files.results || []) if (env.MEDIA && typeof env.MEDIA.delete === "function") await env.MEDIA.delete(file.object_key);
     await env.DB.prepare("DELETE FROM design_submission_files WHERE design_id = ?").bind(Number(designDelete[1])).run();
@@ -396,7 +409,7 @@ export default {
               : b[0] === 82 && b[1] === 73 && b[2] === 70 && b[8] === 87 && b[9] === 69 && b[10] === 66 && b[11] === 80;
             if (!validImage) return json({ error: "The preview file does not appear to be a valid image." }, 400, headers);
           }
-          await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+          await ensureDesignSubmissionFiles(env);
           const saved = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending', datetime('now'))")
             .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio).run();
           const designId = Number(saved.meta?.last_row_id || 0);
