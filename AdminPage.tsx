@@ -74,6 +74,8 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [uploadingImage, setUploadingImage] = useState('');
   const [imageGroup, setImageGroup] = useState<'Construction' | 'Services'>('Construction');
+  const [reviewFeedback, setReviewFeedback] = useState<Record<string, string>>({});
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const load = async (selected: Tab = tab) => {
     setError('');
@@ -148,6 +150,41 @@ export default function AdminPage() {
     catch (e) { setError(e instanceof Error ? e.message : 'Could not save settings.'); }
     finally { setBusy(false); }
   };
+  const reviewSubmission = async (row: Row, action: 'approve' | 'request_changes' | 'decline') => {
+    const feedback = (reviewFeedback[String(row.id)] || '').trim();
+    if (action !== 'approve' && !feedback) {
+      setError(action === 'request_changes' ? 'Please explain what the designer needs to improve.' : 'Please record the reason for declining this submission.');
+      return;
+    }
+    const actionLabel = action === 'approve' ? 'approve and publish this design' : action === 'request_changes' ? 'request improvements from this designer' : 'decline this submission';
+    if (!window.confirm('Are you sure you want to ' + actionLabel + '?')) return;
+    setReviewingId(Number(row.id)); setError(''); setNotice('');
+    try {
+      const result = await api('/api/admin/design-submissions/' + row.id + '/review', {
+        method: 'POST',
+        body: JSON.stringify({ action, feedback }),
+      });
+      await load('design-submissions');
+      if (action === 'approve') {
+        setNotice('Approved. The preview image has been copied from private storage to the public design catalogue, and the design is now published.');
+      } else {
+        const subject = action === 'request_changes' ? 'Please improve and resubmit your Eyaelo design' : 'Update on your Eyaelo design submission';
+        const decision = action === 'request_changes'
+          ? 'Your design needs some improvements before Eyaelo can publish it. Please review the feedback below and resubmit your updated design using the freelance designer form:'
+          : 'Thank you for submitting your design to Eyaelo Design Marketplace. After review, we are unable to accept this submission at this time. Reason:';
+        const body = 'Hello ' + (row.designer_name || 'Designer') + ',\\n\\n' + decision + '\\n\\n' + feedback + '\\n\\nDesign: ' + (row.title || 'Submission #' + row.id) + '\\n\\nResubmission form: ' + window.location.origin + '/design-marketplace#freelance-designers' + '\\n\\nRegards,\\nEyaelo Construction Ltd';
+        setNotice(action === 'request_changes'
+          ? 'Feedback saved and status changed to “Needs revision”. Your email app will open with a message draft for the designer; please send it to notify them.'
+          : 'Submission declined and reason saved. Your email app will open with a message draft; please send it to notify the designer.');
+        window.location.href = 'mailto:' + encodeURIComponent(String(result.designer_email || row.designer_email || '')) + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the review decision.');
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
   const logout = async () => {
     try { await api('/api/admin/logout', { method: 'POST' }); } finally { setAuthenticated(false); setRows([]); setRecord(emptyFor('products')); }
   };
@@ -273,10 +310,26 @@ export default function AdminPage() {
         </form>
       ) : tab === 'design-submissions' ? (
         <div className="admin-list-wrap">
-          <div className="admin-list-heading"><h2>Private designer submissions</h2><button type="button" className="btn outline" onClick={() => load('design-submissions')}><RefreshCw size={15}/> Refresh</button></div>
-          <p className="admin-hint">Uploaded architectural files are stored privately in Cloudflare R2. Download links require an active administrator session. Review the submission here, then use Design catalogue to publish an approved listing.</p>
-          {rows.length === 0 ? <p>No pending designer submissions or private files were found.</p> : rows.map(row => <article className="admin-list-item enquiry-item" key={String(row.id) + '-' + String(row.file_id || 'no-file')}>
-            <div className="admin-item-main"><strong>#{row.id} · {row.title}</strong><span>{row.category} · {row.status || 'pending review'}</span><p>{row.designer_name} · {row.designer_email} · {row.designer_phone}</p><p className="admin-details">{row.description || ''}</p>{row.portfolio_url && <p><a href={row.portfolio_url} target="_blank" rel="noopener noreferrer">Open portfolio link</a></p>}{row.file_id ? <p><a className="btn outline" href={'/api/admin/design-submissions/' + row.id + '/files/' + row.file_id}><span>Download private {row.file_kind === 'preview' ? 'preview image' : 'architectural file'} · {row.file_name} ({Math.max(1, Math.round(Number(row.file_size || 0) / 1024))} KB)</span></a></p> : <p className="admin-hint">No architectural file attached.</p>}</div>
+          <div className="admin-list-heading"><h2>Design review and approval</h2><button type="button" className="btn outline" onClick={() => load('design-submissions')}><RefreshCw size={15}/> Refresh</button></div>
+          <p className="admin-hint">Review private files here. Approving automatically copies the submitted preview image into public design storage and publishes the listing. Requesting changes or declining saves your feedback and opens an email draft for you to send to the designer.</p>
+          {rows.length === 0 ? <p>No designer submissions were found.</p> : rows.filter((row, index, all) => all.findIndex(item => String(item.id) === String(row.id)) === index).map(row => <article className="admin-list-item enquiry-item" key={String(row.id)}>
+            <div className="admin-item-main">
+              <strong>#{row.id} · {row.title}</strong>
+              <span>{row.category} · {row.status === 'needs_revision' ? 'Needs revision' : row.status || 'Pending review'}</span>
+              <p>{row.designer_name} · {row.designer_email} · {row.designer_phone}</p>
+              <p className="admin-details">{row.description || ''}</p>
+              {row.portfolio_url && <p><a href={row.portfolio_url} target="_blank" rel="noopener noreferrer">Open portfolio link</a></p>}
+              {row.review_feedback && <p className="admin-hint"><strong>Previous review feedback:</strong> {row.review_feedback}</p>}
+              {row.file_id && row.file_kind === 'preview' && <p><a className="btn outline" href={'/api/admin/design-submissions/' + row.id + '/files/' + row.file_id}>View/download private preview · {row.file_name}</a></p>}
+              {row.file_id && row.file_kind !== 'preview' && <p><a className="btn outline" href={'/api/admin/design-submissions/' + row.id + '/files/' + row.file_id}>Download private design file · {row.file_name} ({Math.max(1, Math.round(Number(row.file_size || 0) / 1024))} KB)</a></p>}
+              {!row.file_id && <p className="admin-hint">No uploaded file is attached to this submission.</p>}
+              <label className="admin-field"><span>Review feedback (required for improvements or decline)</span><textarea rows={3} value={reviewFeedback[String(row.id)] ?? ''} onChange={e => setReviewFeedback(current => ({ ...current, [String(row.id)]: e.target.value }))} placeholder="Explain clearly what needs changing, or why the submission cannot be accepted." /></label>
+              <div className="admin-review-actions">
+                <button className="btn primary" type="button" disabled={reviewingId === Number(row.id) || row.status === 'published'} onClick={() => void reviewSubmission(row, 'approve')}>{reviewingId === Number(row.id) ? 'Saving review…' : row.status === 'published' ? 'Published' : 'Approve & publish'}</button>
+                <button className="btn outline" type="button" disabled={reviewingId === Number(row.id) || row.status === 'published'} onClick={() => void reviewSubmission(row, 'request_changes')}>Request improvements</button>
+                <button className="btn outline" type="button" disabled={reviewingId === Number(row.id) || row.status === 'published'} onClick={() => void reviewSubmission(row, 'decline')}>Decline submission</button>
+              </div>
+            </div>
           </article>)}
         </div>
       ) : tab === 'enquiries' ? (
