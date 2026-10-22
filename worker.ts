@@ -194,10 +194,17 @@ async function adminApi(request: Request, env: Env, url: URL) {
       "Site Clearance and Earthworks", "Concrete and Formwork Works", "Waterproofing and Damp Protection",
       "Paving, Kerbs and External Works", "Project and Site Coordination", "Building Maintenance and Repairs"
     ];
-    const allowed = ["heroTitle", "heroText", ...imageCategoryNames.map((name) => "categoryImage:" + name)];
+    const allowed = ["heroTitle", "heroText", ...imageCategoryNames.flatMap((name) => ["categoryImage:" + name, "categoryImages:" + name])];
     for (const key of allowed) {
       if (typeof body[key] === "string") {
         const value = clean(body[key], key === "heroText" ? 600 : 1000);
+        if (key.startsWith("categoryImages:") && value) {
+          let images: unknown;
+          try { images = JSON.parse(value); } catch { return json({ error: "Category gallery must be a valid image list." }, 400); }
+          if (!Array.isArray(images) || images.length > 7 || images.some((image) => typeof image !== "string" || image.length > 1000 || !/^https:\/\//i.test(image))) {
+            return json({ error: "Each category can have up to 7 HTTPS image URLs." }, 400);
+          }
+        }
         if (key.startsWith("categoryImage:") && value && value !== "__none__") {
           try {
             const imageUrl = new URL(value);
