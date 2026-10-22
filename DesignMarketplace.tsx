@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Building2, BriefcaseBusiness, GraduationCap, HeartPulse, House, Landmark, Send, ShieldCheck, UploadCloud } from 'lucide-react'
+import { ArrowRight, Building2, BriefcaseBusiness, GraduationCap, HeartPulse, House, Landmark, MessageCircle, Send, ShieldCheck, UploadCloud } from 'lucide-react'
 
 const WHATSAPP = 'https://wa.me/27620686282'
 const categories = [
@@ -210,6 +210,23 @@ const countries = [
   "Zimbabwe"
 ]
 type Design = { id: number; title: string; description: string; category: string; designer_name: string; image_url: string; price_label: string }
+const currencyOptions = [
+  { code: 'USD', label: 'USD — US Dollar' }, { code: 'ZAR', label: 'ZAR — South African Rand' },
+  { code: 'UGX', label: 'UGX — Ugandan Shilling' }, { code: 'KES', label: 'KES — Kenyan Shilling' },
+  { code: 'TZS', label: 'TZS — Tanzanian Shilling' }, { code: 'SSP', label: 'SSP — South Sudanese Pound' },
+  { code: 'GBP', label: 'GBP — British Pound' }, { code: 'EUR', label: 'EUR — Euro' },
+  { code: 'AUD', label: 'AUD — Australian Dollar' }, { code: 'CAD', label: 'CAD — Canadian Dollar' },
+  { code: 'NGN', label: 'NGN — Nigerian Naira' }, { code: 'GHS', label: 'GHS — Ghanaian Cedi' },
+  { code: 'RWF', label: 'RWF — Rwandan Franc' }, { code: 'AED', label: 'AED — UAE Dirham' },
+  { code: 'INR', label: 'INR — Indian Rupee' }, { code: 'CNY', label: 'CNY — Chinese Yuan' },
+  { code: 'JPY', label: 'JPY — Japanese Yen' }, { code: 'BRL', label: 'BRL — Brazilian Real' },
+]
+const countryCurrency: Record<string, string> = {
+  'South Africa': 'ZAR', Uganda: 'UGX', Kenya: 'KES', Tanzania: 'TZS', 'South Sudan': 'SSP',
+  'United Kingdom': 'GBP', 'United States': 'USD', Canada: 'CAD', Australia: 'AUD',
+  Nigeria: 'NGN', Ghana: 'GHS', Rwanda: 'RWF', 'United Arab Emirates': 'AED', India: 'INR',
+  China: 'CNY', Japan: 'JPY', Brazil: 'BRL',
+}
 const whatsappUrl = (message: string) => WHATSAPP + '?text=' + encodeURIComponent(message)
 
 export default function DesignMarketplace() {
@@ -217,6 +234,8 @@ export default function DesignMarketplace() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState('All designs')
   const [selectedDesign, setSelectedDesign] = useState('')
+  const [selectedCountry, setSelectedCountry] = useState('')
+  const [selectedCurrency, setSelectedCurrency] = useState('USD')
   const [requestSent, setRequestSent] = useState(false)
   const [submissionBusy, setSubmissionBusy] = useState(false)
   const [submissionMessage, setSubmissionMessage] = useState('')
@@ -263,9 +282,11 @@ export default function DesignMarketplace() {
       <span className="eyebrow">EYAelo DESIGN MARKETPLACE · WORLDWIDE</span>
       <h1>Find a design.<br/>Bring your vision to life.</h1>
       <p>Explore Eyaelo-reviewed designs and architectural drawings from anywhere in the world. Enquire to purchase a ready-made design or request a custom design for your project.</p>
-      <div className="actions"><a className="btn primary" href="#browse-designs">Browse catalogue <ArrowRight size={17}/></a><a className="btn secondary" href="#custom-request">Make an enquiry</a></div>
+      <div className="actions market-hero-actions"><a className="btn primary" href="#browse-designs">Browse designs <ArrowRight size={17}/></a><a className="btn secondary" href="#custom-request">Buy or request a design</a><a className="btn market-designer-cta" href="#freelance-designers">I’m a designer — submit my work</a></div>
       <p className="market-note">Worldwide enquiries · Prices confirmed individually · Manual payment arrangements · No online checkout yet</p>
     </div><div className="market-hero-panel"><div className="market-panel-icon"><Building2 size={34}/></div><span className="eyebrow dark">A NEW WAY TO PLAN</span><h2>Ideas meet expertise.</h2><p>Browse approved designs, enquire about a listing, or submit your own original work for review.</p><div className="market-trust"><ShieldCheck size={19}/><span>Only designs approved by Eyaelo appear in the public catalogue.</span></div></div></div></section>
+
+    <nav className="market-quick-actions" aria-label="Choose what you want to do"><a href="#browse-designs"><House size={20}/><span><strong>I need a design</strong><small>Browse the catalogue</small></span><ArrowRight size={17}/></a><a href="#custom-request"><MessageCircle size={20}/><span><strong>I have a project</strong><small>Ask for a price or custom design</small></span><ArrowRight size={17}/></a><a href="#freelance-designers"><UploadCloud size={20}/><span><strong>I create designs</strong><small>Submit work for review</small></span><ArrowRight size={17}/></a></nav>
 
     <section className="section" id="browse-designs"><div className="container"><div className="section-head"><div><span className="eyebrow dark">BROWSE BY PROJECT</span><h2>Explore the design catalogue</h2></div><span className="market-coming-label">{designs.length} published design{designs.length === 1 ? '' : 's'}</span></div>
       <div className="market-category-grid">{categories.map(({title, description, icon: Icon}) => <article className="market-category" key={title}><div className="market-category-icon"><Icon size={23}/></div><h3>{title}</h3><p>{description}</p><button type="button" className="text-link market-filter-link" onClick={() => { setSelectedCategory(title); document.getElementById('catalogue-listings')?.scrollIntoView({behavior:'smooth'}) }}>Browse {title} <ArrowRight size={15}/></button></article>)}</div>
@@ -275,7 +296,7 @@ export default function DesignMarketplace() {
 
     <section className="section muted" id="custom-request"><div className="container market-form-grid"><div><span className="eyebrow dark">ONE ENQUIRY FORM</span><h2>Purchase a design or commission architectural drawings.</h2><p className="lead">Clients in any country can enquire about purchasing ready-made designs and architectural drawings, or request a custom design. Eyaelo will confirm scope, price, file delivery, and any local professional or approval requirements before payment.</p><ul className="market-checks"><li><ShieldCheck size={18}/> No payment is taken through this form.</li><li><ShieldCheck size={18}/> Quotes and service fees are explained before you commit.</li><li><ShieldCheck size={18}/> Construction-ready plans and approvals depend on applicable professional requirements.</li></ul></div>
       <form className="form market-form" onSubmit={submitWhatsApp}><h3>Worldwide design and project enquiry</h3><div className="form-grid"><label>Name *<input name="name" required autoComplete="name" placeholder="Your full name"/></label><label>Email *<input name="email" required type="email" autoComplete="email" placeholder="you@example.com"/></label><label>Phone *<input name="phone" required type="tel" autoComplete="tel" placeholder="Your phone number"/></label><label>Project category *<select name="category" required defaultValue=""><option value="" disabled>Select category</option>{categories.map(c=><option key={c.title}>{c.title}</option>)}</select></label>
-        <label className="full">Design you are enquiring about<input name="design" value={selectedDesign} onChange={e=>setSelectedDesign(e.target.value)} placeholder="Optional — select Enquire on a catalogue design"/></label><label>Country *<select name="country" required defaultValue=""><option value="" disabled>Select your country</option>{countries.map(country => <option key={country} value={country}>{country}</option>)}</select></label><label>City / project location *<input name="location" required placeholder="City, region or project site"/></label><label className="full">What do you need? *<select name="request_type" required defaultValue=""><option value="" disabled>Choose an enquiry type</option><option>Purchase a ready-made design or architectural drawings</option><option>Custom architectural design and drawings</option><option>Commercial or infrastructure project design</option><option>Other design or project enquiry</option></select></label><label>Indicative budget<input name="budget" placeholder="Optional amount"/></label><label>Budget currency<input name="currency" placeholder="e.g. USD, GBP, EUR, ZAR" maxLength={8}/></label><label className="full">Project brief *<textarea name="brief" required rows={5} placeholder="Describe the building, approximate size, intended use and what you need."/></label></div><p className="form-note">Submitting opens WhatsApp with your enquiry prepared. Review the message and tap Send in WhatsApp to deliver it.</p><button className="btn primary" type="submit">Prepare enquiry <Send size={16}/></button>{requestSent&&<p className="market-inline-note" role="status">Your WhatsApp message was prepared. Please send it in WhatsApp to complete your enquiry.</p>}</form>
+        <label className="full">Design you are enquiring about<input name="design" value={selectedDesign} onChange={e=>setSelectedDesign(e.target.value)} placeholder="Optional — select Enquire on a catalogue design"/></label><label>Country *<select name="country" required value={selectedCountry} onChange={e=>{setSelectedCountry(e.target.value);setSelectedCurrency(countryCurrency[e.target.value] || 'USD')}}><option value="" disabled>Select your country</option>{countries.map(country => <option key={country} value={country}>{country}</option>)}</select></label><label>City / project location *<input name="location" required placeholder="City, region or project site"/></label><label className="full">What do you need? *<select name="request_type" required defaultValue=""><option value="" disabled>Choose an enquiry type</option><option>Purchase a ready-made design or architectural drawings</option><option>Custom architectural design and drawings</option><option>Commercial or infrastructure project design</option><option>Other design or project enquiry</option></select></label><label>Indicative budget amount<input name="budget" inputMode="decimal" placeholder="Optional amount"/></label><label>Budget currency<select name="currency" value={selectedCurrency} onChange={e=>setSelectedCurrency(e.target.value)}>{currencyOptions.map(c=><option key={c.code} value={c.code}>{c.label}</option>)}</select><span className="form-note">Suggested from your country; you can change it. Final quotation currency will be confirmed by Eyaelo.</span></label><label className="full">Project brief *<textarea name="brief" required rows={5} placeholder="Describe the building, approximate size, intended use and what you need."/></label></div><p className="form-note">Submitting opens WhatsApp with your enquiry prepared. Review the message and tap Send in WhatsApp to deliver it.</p><button className="btn primary" type="submit">Prepare enquiry <Send size={16}/></button>{requestSent&&<p className="market-inline-note" role="status">Your WhatsApp message was prepared. Please send it in WhatsApp to complete your enquiry.</p>}</form>
     </div></section>
 
     <section className="section" id="freelance-designers"><div className="container market-form-grid"><div><span className="eyebrow dark">FOR FREELANCERS & DESIGN PROFESSIONALS</span><h2>Freelance architect or designer? Showcase your work with Eyaelo.</h2><p className="lead">Are you a freelance architect, architectural technologist, draughtsperson, civil or structural engineer, or building-design professional? Submit original designs to Eyaelo Construction Ltd, reach potential customers, and explore opportunities to earn from your creative work.</p><p>We welcome eligible concepts. Eyaelo reviews every submission before publication. Service fees, sales terms and usage rights are agreed before any transaction.</p><ul className="market-checks"><li><ShieldCheck size={18}/> Every submission is reviewed before publication.</li><li><ShieldCheck size={18}/> Submit only work you own or are authorised to offer.</li><li><ShieldCheck size={18}/> Professional registration or credentials may be requested where relevant.</li></ul></div>
