@@ -315,7 +315,7 @@ export default function AdminPage() {
           {rows.length === 0 ? <p>No designer submissions were found.</p> : rows.filter((row, index, all) => all.findIndex(item => String(item.id) === String(row.id)) === index).map(row => <article className="admin-list-item enquiry-item" key={String(row.id)}>
             <div className="admin-item-main">
               <strong>#{row.id} · {row.title}</strong>
-              <span>{row.category} · {row.status === 'needs_revision' ? 'Needs revision' : row.status || 'Pending review'}</span>
+              <span>{row.category} · {row.review_state === 'needs_revision' ? 'Needs revision' : row.review_state === 'declined' ? 'Declined' : row.review_state === 'approved' || row.status === 'published' ? 'Approved and published' : 'Pending review'}</span>
               <p>{row.designer_name} · {row.designer_email} · {row.designer_phone}</p>
               <p className="admin-details">{row.description || ''}</p>
               {row.portfolio_url && <p><a href={row.portfolio_url} target="_blank" rel="noopener noreferrer">Open portfolio link</a></p>}
