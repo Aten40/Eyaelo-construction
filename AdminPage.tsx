@@ -231,6 +231,11 @@ export default function AdminPage() {
               const updateImages = (next: string[]) => setSettings(current => ({ ...current, [key]: JSON.stringify(next.slice(0, 7)) }));
               return <div className="category-image-edit-row category-gallery-editor-row" key={item.name}>
                 <div className="category-gallery-heading"><strong>{item.name}</strong><span>{images.length} of 7 images</span></div>
+                <button type="button" className="btn outline" onClick={() => {
+                  updateImages([]);
+                  setSettings(current => ({ ...current, ['categoryImage:' + item.name]: '', ['pendingGalleryUrl:' + item.name]: '' }));
+                  setNotice('Default photo selected for ' + item.name + '. Save category photos to publish the change. Existing uploaded files are kept unless you choose permanent deletion.');
+                }}>Restore default photo</button>
                 <div className="category-gallery-slots">
                   {images.map((image, index) => <div className="category-gallery-slot" key={image + index}>
                     <img src={image} alt={item.name + ' preview ' + (index + 1)} loading="lazy" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />
