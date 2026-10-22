@@ -127,6 +127,21 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
 
 
+  if (path === "/api/admin/design-submissions" && request.method === "GET") {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, f.id AS file_id, f.file_name, f.file_size, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
+    return json(rows.results || []);
+  }
+  const privateFileMatch = path.match(/^\\/api\\/admin\\/design-submissions\\/(\\d+)\\/files\\/(\\d+)$/);
+  if (privateFileMatch && request.method === "GET") {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    const row = await env.DB.prepare("SELECT object_key, file_name FROM design_submission_files WHERE id = ? AND design_id = ?").bind(Number(privateFileMatch[2]), Number(privateFileMatch[1])).first();
+    if (!row || !env.MEDIA || typeof env.MEDIA.get !== "function") return json({ error: "File not found." }, 404);
+    const object = await env.MEDIA.get(row.object_key);
+    if (!object) return json({ error: "File not found in private storage." }, 404);
+    const safeName = String(row.file_name || "design-file").replace(/[\\r\\n"]/g, "_").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
+    return new Response(object.body, { status: 200, headers: { "content-type": "application/octet-stream", "content-disposition": "attachment; filename=\"" + safeName + "\"", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
+  }
   if (path === "/api/admin/designs" && request.method === "GET") {
     const rows = await env.DB.prepare("SELECT * FROM designs ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'published' THEN 1 ELSE 2 END, id DESC").all();
     return json(rows.results || []);
