@@ -115,7 +115,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
       httpMetadata: { contentType: file.type.toLowerCase(), cacheControl: "public, max-age=31536000, immutable" },
       customMetadata: { category, title, description, originalName: clean(file.name, 180) }
     });
-    return json({ ok: true, key, url: "/media/" + key, title, description }, 201);
+    return json({ ok: true, key, url: new URL(request.url).origin + "/media/" + key, title, description }, 201);
   }
 
 
