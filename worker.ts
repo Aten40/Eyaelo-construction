@@ -45,13 +45,20 @@ async function readBody(request: Request) {
 const designCategories = ["Residential", "Commercial", "Education", "Healthcare", "Infrastructure", "Other projects"];
 
 async function ensureDesignReviewFields(env: Env) {
-  const columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+  let columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
   if (!(columns.results || []).some((column: { name?: string }) => column.name === "review_feedback")) {
-    try {
-      await env.DB.prepare("ALTER TABLE designs ADD COLUMN review_feedback TEXT NOT NULL DEFAULT ''").run();
-    } catch (error) {
-      const refreshed = await env.DB.prepare("PRAGMA table_info(designs)").all();
-      if (!(refreshed.results || []).some((column: { name?: string }) => column.name === "review_feedback")) throw error;
+    try { await env.DB.prepare("ALTER TABLE designs ADD COLUMN review_feedback TEXT NOT NULL DEFAULT ''").run(); }
+    catch (error) {
+      columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+      if (!(columns.results || []).some((column: { name?: string }) => column.name === "review_feedback")) throw error;
+    }
+  }
+  columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+  if (!(columns.results || []).some((column: { name?: string }) => column.name === "review_state")) {
+    try { await env.DB.prepare("ALTER TABLE designs ADD COLUMN review_state TEXT NOT NULL DEFAULT 'pending'").run(); }
+    catch (error) {
+      columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+      if (!(columns.results || []).some((column: { name?: string }) => column.name === "review_state")) throw error;
     }
   }
 }
@@ -155,7 +162,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
   if (path === "/api/admin/design-submissions" && request.method === "GET") {
     await ensureDesignSubmissionFiles(env);
     await ensureDesignReviewFields(env);
-    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_feedback, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
+    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_state, d.review_feedback, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
   }
   const reviewMatch = path.match(/^\/api\/admin\/design-submissions\/(\d+)\/review$/);
@@ -179,18 +186,18 @@ async function adminApi(request: Request, env: Env, url: URL) {
       const key = "uploads/designs/" + id + "-" + crypto.randomUUID() + "." + (ext === "jpeg" ? "jpg" : ext);
       await env.MEDIA.put(key, object.body, { httpMetadata: { contentType: preview.content_type || "image/jpeg", cacheControl: "public, max-age=31536000, immutable" }, customMetadata: { designId: String(id), title: String(design.title || ""), approvedByAdmin: "true" } });
       const imageUrl = new URL(request.url).origin + "/media/" + key;
-      await env.DB.prepare("UPDATE designs SET image_url = ?, status = 'published', review_feedback = '', updated_at = datetime('now') WHERE id = ?").bind(imageUrl, id).run();
-      return json({ ok: true, status: "published", image_url: imageUrl });
+      await env.DB.prepare("UPDATE designs SET image_url = ?, status = 'published', review_state = 'approved', review_feedback = '', updated_at = datetime('now') WHERE id = ?").bind(imageUrl, id).run();
+      return json({ ok: true, status: "published", review_state: "approved", image_url: imageUrl });
     }
     if (action === "request_changes") {
       if (!feedback) return json({ error: "Write clear feedback explaining what the designer should improve." }, 400);
-      await env.DB.prepare("UPDATE designs SET status = 'needs_revision', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
-      return json({ ok: true, status: "needs_revision", feedback, designer_email: design.designer_email, title: design.title });
+      await env.DB.prepare("UPDATE designs SET status = 'pending', review_state = 'needs_revision', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
+      return json({ ok: true, status: "pending", review_state: "needs_revision", feedback, designer_email: design.designer_email, title: design.title });
     }
     if (action === "decline") {
       if (!feedback) return json({ error: "Please record a reason for declining this submission." }, 400);
-      await env.DB.prepare("UPDATE designs SET status = 'rejected', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
-      return json({ ok: true, status: "rejected", feedback, designer_email: design.designer_email, title: design.title });
+      await env.DB.prepare("UPDATE designs SET status = 'rejected', review_state = 'declined', review_feedback = ?, updated_at = datetime('now') WHERE id = ?").bind(feedback, id).run();
+      return json({ ok: true, status: "rejected", review_state: "declined", feedback, designer_email: design.designer_email, title: design.title });
     }
     return json({ error: "Choose approve, request_changes or decline." }, 400);
   }
