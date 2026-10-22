@@ -2,6 +2,13 @@ import { FormEvent, useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 type Row = Record<string, any>;
+const designPackageLabel = (value: string) => ({
+  floor: 'Floor plan only',
+  architectural: 'Complete architectural drawing package',
+  full: 'Full building package — foundation to roof',
+  '3d': '3D visualisation only',
+  custom: 'Custom package',
+}[value] || value || 'Not specified');
 type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'design-submissions' | 'enquiries' | 'settings' | 'images';
 const tabs: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Materials & products' },
@@ -318,7 +325,7 @@ export default function AdminPage() {
               <span>{row.category} · {row.review_state === 'needs_revision' ? 'Needs revision' : row.review_state === 'declined' ? 'Declined' : row.review_state === 'approved' || row.status === 'published' ? 'Approved and published' : 'Pending review'}</span>
               <p>{row.designer_name} · {row.designer_email} · {row.designer_phone}</p>
               <p className="admin-details">{row.description || ''}</p>
-              {(row.design_package || row.included_drawings || row.file_format) && <div className="admin-design-scope"><strong>Package & drawing scope</strong><p><b>Package:</b> {{floor:'Floor plan only',architectural:'Complete architectural drawing package',full:'Full building package — foundation to roof','3d':'3D visualisation only',custom:'Custom package'}[row.design_package] || row.design_package || 'Not specified'}</p><p><b>Included drawings:</b> {row.included_drawings || 'Not specified'}</p><p><b>File format:</b> {row.file_format || 'Not specified'} · <b>Editable files:</b> {row.editable_files || 'Not specified'}</p><p><b>Design status:</b> {row.design_status || 'Not specified'} · <b>Intended country:</b> {row.intended_country || 'Not specified'}</p></div>}
+              {(row.design_package || row.included_drawings || row.file_format) && <div className="admin-design-scope"><strong>Package & drawing scope</strong><p><b>Package:</b> {designPackageLabel(row.design_package)}</p><p><b>Included drawings:</b> {row.included_drawings || 'Not specified'}</p><p><b>File format:</b> {row.file_format || 'Not specified'} · <b>Editable files:</b> {row.editable_files || 'Not specified'}</p><p><b>Design status:</b> {row.design_status || 'Not specified'} · <b>Intended country:</b> {row.intended_country || 'Not specified'}</p></div>}
               {row.portfolio_url && <p><a href={row.portfolio_url} target="_blank" rel="noopener noreferrer">Open portfolio link</a></p>}
               {row.review_feedback && <p className="admin-hint"><strong>Previous review feedback:</strong> {row.review_feedback}</p>}
               {rows.filter(fileRow => String(fileRow.id) === String(row.id) && fileRow.file_id).map(fileRow => <p key={String(fileRow.file_id)}><a className="btn outline" href={'/api/admin/design-submissions/' + row.id + '/files/' + fileRow.file_id}>{fileRow.file_kind === 'preview' ? 'View/download private preview' : 'Download private design file'} · {fileRow.file_name} ({Math.max(1, Math.round(Number(fileRow.file_size || 0) / 1024))} KB)</a></p>)}
