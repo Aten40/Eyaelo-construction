@@ -653,3 +653,19 @@ footer a:hover{color:#e1bb60}
  .category-gallery-slot img{height:100px}
  .category-gallery-heading{align-items:flex-start;flex-direction:column;gap:4px}
 }
+
+
+/* Public category gallery lightbox and tap-to-open image controls */
+.category-gallery-open{position:relative;display:block;min-width:0;width:100%;padding:0;border:0;background:transparent;cursor:zoom-in;overflow:hidden;border-radius:5px}
+.category-gallery-open .category-image{display:block;transition:transform .2s ease}
+.category-gallery-open:hover .category-image{transform:scale(1.025)}
+.category-gallery-zoom{position:absolute;right:7px;bottom:7px;padding:5px 8px;border-radius:5px;background:rgba(10,24,36,.82);color:#fff;font-size:11px;font-weight:700;opacity:.95}
+.category-lightbox{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:54px 64px 28px;background:rgba(5,12,18,.94);box-sizing:border-box}
+.category-lightbox-close{position:absolute;top:12px;right:14px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid rgba(255,255,255,.35);border-radius:50%;background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.category-lightbox-figure{display:flex;flex-direction:column;align-items:center;gap:10px;max-width:100%;max-height:100%;margin:0}
+.category-lightbox-figure img{display:block;max-width:100%;max-height:calc(100vh - 120px);object-fit:contain;border-radius:5px}
+.category-lightbox-figure figcaption{color:#fff;text-align:center;font-size:14px}
+.category-lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:46px;height:56px;border:1px solid rgba(255,255,255,.35);border-radius:10px;background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.category-lightbox-prev{left:12px}
+.category-lightbox-next{right:12px}
+@media(max-width:520px){.category-lightbox{padding:54px 44px 24px}.category-lightbox-figure img{max-height:calc(100vh - 135px)}.category-lightbox-arrow{width:36px;height:48px}.category-lightbox-prev{left:4px}.category-lightbox-next{right:4px}}
