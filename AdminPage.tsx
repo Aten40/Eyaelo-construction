@@ -131,7 +131,10 @@ export default function AdminPage() {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     try {
       const imageValues: Record<string, string> = {};
-      for (const item of imageCategories) imageValues['categoryImage:' + item.name] = settings['categoryImage:' + item.name] || '';
+      for (const item of imageCategories) {
+        imageValues['categoryImage:' + item.name] = settings['categoryImage:' + item.name] || '';
+        imageValues['categoryImages:' + item.name] = settings['categoryImages:' + item.name] || '[]';
+      }
       await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(imageValues) });
       setNotice('Category photos saved. The public Construction and Services pages will use these images.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save category photos.'); }
@@ -220,12 +223,36 @@ export default function AdminPage() {
           <div className="category-image-group" key={imageGroup}>
             <h3>{imageGroup} category photos</h3>
             {imageCategories.filter(item => item.group === imageGroup).map(item => {
-              const key = 'categoryImage:' + item.name;
-              const value = settings[key] || '';
-              return <div className="category-image-edit-row" key={item.name}>
-                <label className="admin-field"><span>{item.name} image URL</span><input type="url" inputMode="url" value={value} onChange={e => setSettings({ ...settings, [key]: e.target.value })} placeholder="Paste a direct HTTPS image URL or upload below" /></label>
-                {imageUploadField(item.group.toLowerCase(), url => setSettings(current => ({ ...current, [key]: url })), item.name)}
-                {value && <img src={value} alt={'Preview: ' + item.name} loading="lazy" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />}
+              const key = 'categoryImages:' + item.name;
+              const legacyKey = 'categoryImage:' + item.name;
+              let images: string[] = [];
+              try { const parsed = JSON.parse(settings[key] || '[]'); if (Array.isArray(parsed)) images = parsed.filter((x): x is string => typeof x === 'string').slice(0, 7); } catch {}
+              if (!images.length && settings[legacyKey]) images = [settings[legacyKey]];
+              const updateImages = (next: string[]) => setSettings(current => ({ ...current, [key]: JSON.stringify(next.slice(0, 7)) }));
+              return <div className="category-image-edit-row category-gallery-editor-row" key={item.name}>
+                <div className="category-gallery-heading"><strong>{item.name}</strong><span>{images.length} of 7 images</span></div>
+                <div className="category-gallery-slots">
+                  {images.map((image, index) => <div className="category-gallery-slot" key={image + index}>
+                    <img src={image} alt={item.name + ' preview ' + (index + 1)} loading="lazy" onError={e => { e.currentTarget.style.opacity = '0.35'; }} />
+                    <span>Image {index + 1}</span>
+                    <button type="button" className="admin-delete" onClick={async () => {
+                      const keyMatch = image.match(/\/media\/(uploads\/[^?#]+)/);
+                      if (keyMatch && window.confirm('Permanently delete this Eyaelo-uploaded image from storage? Choose Cancel to remove it from the page but keep the file.')) {
+                        try { const response = await fetch('/api/admin/uploads?key=' + encodeURIComponent(keyMatch[1]), { method: 'DELETE', credentials: 'same-origin' }); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || 'Permanent deletion failed.'); }
+                        catch (err) { setError(err instanceof Error ? err.message : 'Could not delete image from storage.'); return; }
+                      }
+                      updateImages(images.filter((_, i) => i !== index));
+                      setNotice('Image removed from the category draft. Save category photos to publish the change.');
+                    }}><Trash2 size={15}/> Remove</button>
+                  </div>)}
+                  {images.length < 7 && imageUploadField(item.group.toLowerCase(), url => updateImages([...images, url]), item.name)}
+                </div>
+                {images.length < 7 && <label className="admin-field"><span>Add an image URL (optional)</span><input type="url" inputMode="url" value={settings['pendingGalleryUrl:' + item.name] || ''} placeholder="Paste a direct HTTPS image URL" onChange={e => setSettings(current => ({ ...current, ['pendingGalleryUrl:' + item.name]: e.target.value }))} /></label>}
+                {images.length < 7 && <button type="button" className="btn outline" onClick={() => {
+                  const value = settings['pendingGalleryUrl:' + item.name] || '';
+                  if (!/^https:\/\//i.test(value)) { setError('Enter a valid HTTPS image URL first.'); return; }
+                  updateImages([...images, value]); setSettings(current => ({ ...current, ['pendingGalleryUrl:' + item.name]: '' })); setError('');
+                }}>Add image URL</button>}
               </div>;
             })}
           </div>
