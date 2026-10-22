@@ -158,7 +158,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_feedback, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
   }
-  const reviewMatch = path.match(/^\\/api\\/admin\\/design-submissions\\/(\\d+)\\/review$/);
+  const reviewMatch = path.match(/^\/api\/admin\/design-submissions\/(\d+)\/review$/);
   if (reviewMatch && request.method === "POST") {
     await ensureDesignSubmissionFiles(env);
     await ensureDesignReviewFields(env);
