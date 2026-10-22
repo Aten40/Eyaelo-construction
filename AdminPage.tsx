@@ -291,7 +291,7 @@ export default function AdminPage() {
               {field('Designer name', 'designer_name')}{field('Designer email (private)', 'designer_email')}{field('Designer phone (private)', 'designer_phone')}{field('Portfolio URL', 'portfolio_url')}{field('Preview image URL', 'image_url')}{imageUploadField('designs', url => setRecord(current => ({ ...current, image_url: url })), record.title || 'Design preview', record.description || '')}{field('Price label', 'price_label')}
               <label className="admin-field"><span>Review status</span><select value={record.status || 'pending'} onChange={e => setRecord({ ...record, status: e.target.value })}><option value="pending">Pending review</option><option value="published">Published</option><option value="rejected">Rejected</option></select></label>
               <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.rights_confirmed)} onChange={e => setRecord({ ...record, rights_confirmed: e.target.checked })}/><span>Designer confirms ownership or permission to submit</span></label>
-              <p className="admin-hint">Image and design-file uploads will be connected when storage is enabled. Only published designs appear in the public catalogue.</p>
+              <p className="admin-hint">Preview images can be uploaded from the admin dashboard to Cloudflare storage. Architectural drawing files are not yet supported here; arrange file transfer separately. Only designs marked Published appear in the public catalogue.</p>
             </>}
             {tab === 'products' && <>
               {field('Product name', 'name')}
