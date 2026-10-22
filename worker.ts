@@ -87,6 +87,14 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
   if (!(await requireAdmin(request, env))) return json({ error: "Please log in to the admin dashboard." }, 401);
 
+  if (path === "/api/admin/uploads" && request.method === "DELETE") {
+    if (!env.MEDIA || typeof env.MEDIA.delete !== "function") return json({ error: "Image storage is not connected." }, 503);
+    const key = clean(url.searchParams.get("key"), 300);
+    if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key)) return json({ error: "Only Eyaelo-uploaded image files can be permanently deleted here." }, 400);
+    await env.MEDIA.delete(key);
+    return json({ ok: true, deleted: key });
+  }
+
   if (path === "/api/admin/uploads" && request.method === "POST") {
     if (!env.MEDIA || typeof env.MEDIA.put !== "function") return json({ error: "Image storage is not connected to this Worker yet." }, 503);
     const contentType = request.headers.get("content-type") || "";
@@ -190,7 +198,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     for (const key of allowed) {
       if (typeof body[key] === "string") {
         const value = clean(body[key], key === "heroText" ? 600 : 1000);
-        if (key.startsWith("categoryImage:") && value) {
+        if (key.startsWith("categoryImage:") && value && value !== "__none__") {
           try {
             const imageUrl = new URL(value);
             if (imageUrl.protocol !== "https:") return json({ error: "Category image links must use HTTPS." }, 400);
