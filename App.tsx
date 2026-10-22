@@ -145,8 +145,18 @@ function FormPage({material=false}:{material?:boolean}){
   const intro=material?'Hello Eyaelo Construction Ltd, I would like to request a building-materials quotation.':'Hello Eyaelo Construction Ltd, I would like to request a construction quote.'
   const url='https://wa.me/'+siteConfig.whatsappNumber+'?text='+encodeURIComponent(intro+'\n\n'+message+'\n\nSent through the Eyaelo website enquiry form.')
   const payload={type:material?'material':'quote',name:String(values.get('name')||''),company:String(values.get('company')||''),phone:String(values.get('phone')||''),email:String(values.get('email')||''),subject:material?String(values.get('material')||values.get('category')||'Material pricing'):String(values.get('projectType')||'Construction quote'),details:message}
-  try { await fetch('/api/enquiries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),keepalive:true}) } catch {}
-  window.location.href=url
+  try {
+   const response = await fetch('/api/enquiries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),keepalive:true})
+   if(!response.ok){
+    const result = await response.json().catch(()=>({}))
+    const reason = typeof result.error === 'string' ? '\\n\\nReason: '+result.error : ''
+    if(window.confirm('Eyaelo could not confirm that your enquiry was saved to its dashboard.'+reason+'\\n\\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
+    return
+   }
+   window.location.href=url
+  } catch {
+   if(window.confirm('We could not confirm that your enquiry was saved to Eyaelo’s dashboard because of a connection problem.\\n\\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
+  }
  }
  const params=new URLSearchParams(window.location.search)
  const selectedCategory=params.get('category')||''
