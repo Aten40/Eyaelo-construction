@@ -338,17 +338,63 @@ export default {
           return json(rows.results || [], 200, headers);
         }
         if (url.pathname === "/api/design-submissions" && request.method === "POST") {
-          const body = await readBody(request);
+          const contentType = request.headers.get("content-type") || "";
+          const multipart = contentType.toLowerCase().includes("multipart/form-data");
+          let body: Record<string, unknown>;
+          let designFile: File | null = null;
+          if (multipart) {
+            const length = Number(request.headers.get("content-length") || "0");
+            if (length > 21_000_000) return json({ error: "The total upload is too large. Design files must be 20 MB or smaller." }, 413, headers);
+            const form = await request.formData();
+            body = Object.fromEntries(Array.from(form.entries()).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+            const uploaded = form.get("design_file");
+            if (uploaded instanceof File && uploaded.size > 0) designFile = uploaded;
+          } else {
+            body = await readBody(request);
+          }
           const title = clean(body.title, 160), category = clean(body.category, 50), name = clean(body.designer_name, 160), email = clean(body.designer_email, 200), phone = clean(body.designer_phone, 80);
           if (!title || !name || !email || !phone) return json({ error: "Please provide the design title, your name, email and phone." }, 400, headers);
           if (!designCategories.includes(category)) return json({ error: "Choose a valid design category." }, 400, headers);
-          if (body.rights_confirmed !== true) return json({ error: "Please confirm you own or are authorised to submit this work." }, 400, headers);
+          if (body.rights_confirmed !== true && body.rights_confirmed !== "true" && body.rights_confirmed !== "on") return json({ error: "Please confirm you own or are authorised to submit this work." }, 400, headers);
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, headers);
           const portfolio = clean(body.portfolio_url, 1000);
           if (portfolio) { try { if (new URL(portfolio).protocol !== "https:") throw new Error(); } catch { return json({ error: "Portfolio link must be a valid HTTPS URL." }, 400, headers); } }
-          await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending')")
+          let bytes: Uint8Array | null = null, ext = "", safeName = "";
+          if (designFile) {
+            if (designFile.size > 20 * 1024 * 1024) return json({ error: "Design files must be 20 MB or smaller." }, 413, headers);
+            safeName = (designFile.name.split(/[\\\\/]/).pop() || "design-file").replace(/[\r\n"]/g, "_").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
+            ext = safeName.toLowerCase().split(".").pop() || "";
+            if (!["pdf", "dwg", "dxf", "doc", "docx", "zip"].includes(ext)) return json({ error: "Accepted files: PDF, DWG, DXF, DOC, DOCX or ZIP. Maximum 20 MB." }, 400, headers);
+            bytes = new Uint8Array(await designFile.arrayBuffer());
+            const begins = (...signature: number[]) => signature.every((value, index) => bytes![index] === value);
+            const valid = ext === "pdf" ? begins(37,80,68,70,45)
+              : ["docx","zip"].includes(ext) ? begins(80,75,3,4)
+              : ext === "doc" ? begins(208,207,17,224,161,177,26,225)
+              : ext === "dxf" ? new TextDecoder().decode(bytes.slice(0,4096)).includes("SECTION")
+              : new TextDecoder().decode(bytes.slice(0,6)).startsWith("AC10");
+            if (!valid) return json({ error: "The file content does not match a supported file format." }, 400, headers);
+          }
+          await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+          const saved = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending', datetime('now'))")
             .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio).run();
-          return json({ ok: true, message: "Submission received for review. Artwork uploads will be connected later." }, 201, headers);
+          const designId = Number(saved.meta?.last_row_id || 0);
+          if (designFile && bytes && designId) {
+            if (!env.MEDIA || typeof env.MEDIA.put !== "function") {
+              await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(designId).run();
+              return json({ error: "Private file storage is unavailable. Your submission was not saved; try again without a file." }, 503, headers);
+            }
+            const key = "private-design-submissions/" + designId + "/" + crypto.randomUUID() + "." + ext;
+            try {
+              await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: "application/octet-stream" }, customMetadata: { designId: String(designId), originalName: safeName } });
+              await env.DB.prepare("INSERT INTO design_submission_files (design_id, object_key, file_name, content_type, file_size) VALUES (?, ?, ?, ?, ?)")
+                .bind(designId, key, safeName, designFile.type || "application/octet-stream", designFile.size).run();
+            } catch (uploadError) {
+              await env.MEDIA.delete(key).catch(() => {});
+              await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(designId).run();
+              throw uploadError;
+            }
+          }
+          return json({ ok: true, id: designId, file_uploaded: Boolean(designFile), message: "Submission received privately for review." }, 201, headers);
         }
 
         if (url.pathname === "/api/enquiries" && request.method === "POST") {
