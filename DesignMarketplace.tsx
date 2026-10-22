@@ -239,6 +239,10 @@ export default function DesignMarketplace() {
     const form = e.currentTarget
     setSubmissionBusy(true); setSubmissionMessage(''); setSubmissionError('')
     const data = new FormData(e.currentTarget)
+    data.set('designer_name', String(data.get('name') || ''))
+    data.set('designer_email', String(data.get('email') || ''))
+    data.set('designer_phone', String(data.get('phone') || ''))
+    data.set('portfolio_url', String(data.get('portfolio') || ''))
     data.set('rights_confirmed', data.get('rights') === 'on' ? 'true' : 'false')
     data.delete('rights')
     try {
