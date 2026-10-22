@@ -128,8 +128,8 @@ async function adminApi(request: Request, env: Env, url: URL) {
 
 
   if (path === "/api/admin/design-submissions" && request.method === "GET") {
-    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
-    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, f.id AS file_id, f.file_name, f.file_size, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
   }
   const privateFileMatch = path.match(/^\\/api\\/admin\\/design-submissions\\/(\\d+)\\/files\\/(\\d+)$/);
@@ -345,7 +345,7 @@ export default {
           const contentType = request.headers.get("content-type") || "";
           const multipart = contentType.toLowerCase().includes("multipart/form-data");
           let body: Record<string, unknown>;
-          let designFile: File | null = null;
+          let designFile: File | null = null;\n          let previewFile: File | null = null;
           if (multipart) {
             const length = Number(request.headers.get("content-length") || "0");
             if (length > 21_000_000) return json({ error: "The total upload is too large. Design files must be 20 MB or smaller." }, 413, headers);
@@ -363,7 +363,7 @@ export default {
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, headers);
           const portfolio = clean(body.portfolio_url, 1000);
           if (portfolio) { try { if (new URL(portfolio).protocol !== "https:") throw new Error(); } catch { return json({ error: "Portfolio link must be a valid HTTPS URL." }, 400, headers); } }
-          let bytes: Uint8Array | null = null, ext = "", safeName = "";
+          let bytes: Uint8Array | null = null, ext = "", safeName = "";\n          let previewBytes: Uint8Array | null = null, previewExt = "", previewName = "";
           if (designFile) {
             if (designFile.size > 20 * 1024 * 1024) return json({ error: "Design files must be 20 MB or smaller." }, 413, headers);
             safeName = (designFile.name.split(/[\\\\/]/).pop() || "design-file").replace(/[\r\n"]/g, "_").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
@@ -378,27 +378,54 @@ export default {
               : new TextDecoder().decode(bytes.slice(0,6)).startsWith("AC10");
             if (!valid) return json({ error: "The file content does not match a supported file format." }, 400, headers);
           }
+          if (previewFile) {
+            if (previewFile.size > 8 * 1024 * 1024) return json({ error: "Preview images must be 8 MB or smaller." }, 413, headers);
+            previewName = (previewFile.name.split(/[\\\\/]/).pop() || "design-preview").replace(/[\\r\\n"]/g, "_").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
+            previewExt = previewName.toLowerCase().split(".").pop() || "";
+            const previewTypes: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
+            if (!previewTypes[previewExt]) return json({ error: "Preview images must be JPG, PNG, WEBP or GIF." }, 400, headers);
+            previewBytes = new Uint8Array(await previewFile.arrayBuffer());
+            const b = previewBytes;
+            const validImage = (previewExt === "jpg" || previewExt === "jpeg") ? b[0] === 255 && b[1] === 216 && b[2] === 255
+              : previewExt === "png" ? b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71
+              : previewExt === "gif" ? b[0] === 71 && b[1] === 73 && b[2] === 70 && b[3] === 56
+              : b[0] === 82 && b[1] === 73 && b[2] === 70 && b[8] === 87 && b[9] === 69 && b[10] === 66 && b[11] === 80;
+            if (!validImage) return json({ error: "The preview file does not appear to be a valid image." }, 400, headers);
+          }
           await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
           const saved = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending', datetime('now'))")
             .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio).run();
           const designId = Number(saved.meta?.last_row_id || 0);
-          if (designFile && bytes && designId) {
+          if ((designFile && bytes || previewFile && previewBytes) && designId) {
             if (!env.MEDIA || typeof env.MEDIA.put !== "function") {
               await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(designId).run();
-              return json({ error: "Private file storage is unavailable. Your submission was not saved; try again without a file." }, 503, headers);
+              return json({ error: "Private file storage is unavailable. Your submission was not saved; please try again later." }, 503, headers);
             }
-            const key = "private-design-submissions/" + designId + "/" + crypto.randomUUID() + "." + ext;
+            const attachments = [
+              ...(designFile && bytes ? [{ file: designFile, bytes, ext, name: safeName, kind: "architectural" }] : []),
+              ...(previewFile && previewBytes ? [{ file: previewFile, bytes: previewBytes, ext: previewExt, name: previewName, kind: "preview" }] : [])
+            ];
             try {
-              await env.MEDIA.put(key, bytes, { httpMetadata: { contentType: "application/octet-stream" }, customMetadata: { designId: String(designId), originalName: safeName } });
-              await env.DB.prepare("INSERT INTO design_submission_files (design_id, object_key, file_name, content_type, file_size) VALUES (?, ?, ?, ?, ?)")
-                .bind(designId, key, safeName, designFile.type || "application/octet-stream", designFile.size).run();
+              for (const attachment of attachments) {
+                const key = "private-design-submissions/" + designId + "/" + attachment.kind + "-" + crypto.randomUUID() + "." + attachment.ext;
+                await env.MEDIA.put(key, attachment.bytes, { httpMetadata: { contentType: "application/octet-stream" }, customMetadata: { designId: String(designId), originalName: attachment.name, fileKind: attachment.kind } });
+                try {
+                  await env.DB.prepare("INSERT INTO design_submission_files (design_id, object_key, file_name, content_type, file_size, file_kind) VALUES (?, ?, ?, ?, ?, ?)")
+                    .bind(designId, key, attachment.name, attachment.file.type || "application/octet-stream", attachment.file.size, attachment.kind).run();
+                } catch (dbError) {
+                  await env.MEDIA.delete(key).catch(() => {});
+                  throw dbError;
+                }
+              }
             } catch (uploadError) {
-              await env.MEDIA.delete(key).catch(() => {});
+              const savedFiles = await env.DB.prepare("SELECT object_key FROM design_submission_files WHERE design_id = ?").bind(designId).all();
+              for (const savedFile of savedFiles.results || []) await env.MEDIA.delete(savedFile.object_key).catch(() => {});
+              await env.DB.prepare("DELETE FROM design_submission_files WHERE design_id = ?").bind(designId).run();
               await env.DB.prepare("DELETE FROM designs WHERE id = ?").bind(designId).run();
               throw uploadError;
             }
           }
-          return json({ ok: true, id: designId, file_uploaded: Boolean(designFile), message: "Submission received privately for review." }, 201, headers);
+          return json({ ok: true, id: designId, file_uploaded: Boolean(designFile || previewFile), message: "Submission received privately for review." }, 201, headers);
         }
 
         if (url.pathname === "/api/enquiries" && request.method === "POST") {
