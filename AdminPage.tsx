@@ -132,7 +132,7 @@ export default function AdminPage() {
     try {
       const imageValues: Record<string, string> = {};
       for (const item of imageCategories) {
-        imageValues['categoryImage:' + item.name] = settings['categoryImage:' + item.name] || '';
+        imageValues['categoryImage:' + item.name] = settings['categoryImages:' + item.name] ? '' : (settings['categoryImage:' + item.name] || '');
         imageValues['categoryImages:' + item.name] = settings['categoryImages:' + item.name] || '[]';
       }
       await api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(imageValues) });
