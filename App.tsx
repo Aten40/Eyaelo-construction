@@ -149,13 +149,13 @@ function FormPage({material=false}:{material?:boolean}){
    const response = await fetch('/api/enquiries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),keepalive:true})
    if(!response.ok){
     const result = await response.json().catch(()=>({}))
-    const reason = typeof result.error === 'string' ? '\\n\\nReason: '+result.error : ''
-    if(window.confirm('Eyaelo could not confirm that your enquiry was saved to its dashboard.'+reason+'\\n\\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
+    const reason = typeof result.error === 'string' ? '\n\nReason: '+result.error : ''
+    if(window.confirm('Eyaelo could not confirm that your enquiry was saved to its dashboard.'+reason+'\n\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
     return
    }
    window.location.href=url
   } catch {
-   if(window.confirm('We could not confirm that your enquiry was saved to Eyaelo’s dashboard because of a connection problem.\\n\\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
+   if(window.confirm('We could not confirm that your enquiry was saved to Eyaelo’s dashboard because of a connection problem.\n\nWould you like to continue to WhatsApp instead? You will still need to tap Send there.')) window.location.href=url
   }
  }
  const params=new URLSearchParams(window.location.search)
