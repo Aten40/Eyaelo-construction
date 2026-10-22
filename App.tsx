@@ -79,7 +79,7 @@ function categoryGallery(title:string, settings:Record<string,string> = {}) {
  try {
   const parsed = JSON.parse(settings['categoryImages:'+title] || '[]');
   if (Array.isArray(parsed)) {
-   const valid = parsed.filter((x): x is string => typeof x === 'string' && /^https:\/\//i.test(x)).slice(0,7);
+   const valid = parsed.filter((x): x is string => typeof x === 'string' && (/^https:\/\//i.test(x) || /^\/media\/uploads\/(?:construction|services)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/i.test(x))).slice(0,7);
    if (valid.length) return valid;
   }
  } catch {}
