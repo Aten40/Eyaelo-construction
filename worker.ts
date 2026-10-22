@@ -345,7 +345,8 @@ export default {
           const contentType = request.headers.get("content-type") || "";
           const multipart = contentType.toLowerCase().includes("multipart/form-data");
           let body: Record<string, unknown>;
-          let designFile: File | null = null;\n          let previewFile: File | null = null;
+          let designFile: File | null = null;
+          let previewFile: File | null = null;
           if (multipart) {
             const length = Number(request.headers.get("content-length") || "0");
             if (length > 21_000_000) return json({ error: "The total upload is too large. Design files must be 20 MB or smaller." }, 413, headers);
@@ -365,7 +366,8 @@ export default {
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, headers);
           const portfolio = clean(body.portfolio_url, 1000);
           if (portfolio) { try { if (new URL(portfolio).protocol !== "https:") throw new Error(); } catch { return json({ error: "Portfolio link must be a valid HTTPS URL." }, 400, headers); } }
-          let bytes: Uint8Array | null = null, ext = "", safeName = "";\n          let previewBytes: Uint8Array | null = null, previewExt = "", previewName = "";
+          let bytes: Uint8Array | null = null, ext = "", safeName = "";
+          let previewBytes: Uint8Array | null = null, previewExt = "", previewName = "";
           if (designFile) {
             if (designFile.size > 20 * 1024 * 1024) return json({ error: "Design files must be 20 MB or smaller." }, 413, headers);
             safeName = (designFile.name.split(/[\\\\/]/).pop() || "design-file").replace(/[\r\n"]/g, "_").replace(/[^a-zA-Z0-9._ -]/g, "_").slice(0, 180);
