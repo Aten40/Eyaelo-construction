@@ -63,6 +63,29 @@ async function ensureDesignReviewFields(env: Env) {
   }
 }
 
+
+async function ensureDesignPackageFields(env: Env) {
+  const fields: Array<[string, string]> = [
+    ["design_package", "TEXT NOT NULL DEFAULT 'full'"],
+    ["included_drawings", "TEXT NOT NULL DEFAULT ''"],
+    ["file_format", "TEXT NOT NULL DEFAULT 'PDF drawings'"],
+    ["editable_files", "TEXT NOT NULL DEFAULT 'Not included'"],
+    ["design_status", "TEXT NOT NULL DEFAULT 'Completed design'"],
+    ["intended_country", "TEXT NOT NULL DEFAULT 'Uganda'"],
+  ];
+  let columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+  for (const [name, definition] of fields) {
+    if (!(columns.results || []).some((column: { name?: string }) => column.name === name)) {
+      try { await env.DB.prepare("ALTER TABLE designs ADD COLUMN " + name + " " + definition).run(); }
+      catch (error) {
+        columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+        if (!(columns.results || []).some((column: { name?: string }) => column.name === name)) throw error;
+      }
+      columns = await env.DB.prepare("PRAGMA table_info(designs)").all();
+    }
+  }
+}
+
 async function ensureDesignSubmissionFiles(env: Env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
   const columns = await env.DB.prepare("PRAGMA table_info(design_submission_files)").all();
@@ -160,9 +183,10 @@ async function adminApi(request: Request, env: Env, url: URL) {
 
 
   if (path === "/api/admin/design-submissions" && request.method === "GET") {
+    await ensureDesignPackageFields(env);
     await ensureDesignSubmissionFiles(env);
     await ensureDesignReviewFields(env);
-    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_state, d.review_feedback, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
+    const rows = await env.DB.prepare("SELECT d.id, d.title, d.description, d.category, d.designer_name, d.designer_email, d.designer_phone, d.portfolio_url, d.rights_confirmed, d.status, d.review_state, d.review_feedback, d.design_package, d.included_drawings, d.file_format, d.editable_files, d.design_status, d.intended_country, f.id AS file_id, f.file_name, f.file_size, f.file_kind, f.created_at AS file_created_at FROM designs d LEFT JOIN design_submission_files f ON f.design_id = d.id WHERE d.status IN ('pending','rejected','needs_revision') OR f.id IS NOT NULL ORDER BY d.id DESC").all();
     return json(rows.results || []);
   }
   const reviewMatch = path.match(/^\/api\/admin\/design-submissions\/(\d+)\/review$/);
@@ -405,13 +429,15 @@ export default {
         if (url.pathname === "/api/content" && request.method === "GET") return json(await content(env), 200, headers);
 
         if (url.pathname === "/api/designs" && request.method === "GET") {
+          await ensureDesignPackageFields(env);
           const category = clean(url.searchParams.get("category"), 50);
           const rows = category && designCategories.includes(category)
-            ? await env.DB.prepare("SELECT id, title, description, category, designer_name, image_url, price_label FROM designs WHERE status='published' AND category=? ORDER BY id DESC").bind(category).all()
+            ? await env.DB.prepare("SELECT id, title, description, category, designer_name, image_url, price_label, design_package, included_drawings, file_format, editable_files, design_status, intended_country FROM designs WHERE status='published' AND category=? ORDER BY id DESC").bind(category).all()
             : await env.DB.prepare("SELECT id, title, description, category, designer_name, image_url, price_label FROM designs WHERE status='published' ORDER BY id DESC").all();
           return json(rows.results || [], 200, headers);
         }
         if (url.pathname === "/api/design-submissions" && request.method === "POST") {
+          await ensureDesignPackageFields(env);
           const contentType = request.headers.get("content-type") || "";
           const multipart = contentType.toLowerCase().includes("multipart/form-data");
           let body: Record<string, unknown>;
@@ -436,6 +462,19 @@ export default {
           if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400, headers);
           const portfolio = clean(body.portfolio_url, 1000);
           if (portfolio) { try { if (new URL(portfolio).protocol !== "https:") throw new Error(); } catch { return json({ error: "Portfolio link must be a valid HTTPS URL." }, 400, headers); } }
+          const allowedPackages = ["floor", "architectural", "full", "3d", "custom"];
+          const designPackage = clean(body.design_package || "full", 30);
+          const includedDrawings = clean(body.included_drawings || "Floor plans, Elevations, Sections, Roof plan, Foundation drawings", 1500);
+          const fileFormat = clean(body.file_format || "PDF drawings", 80);
+          const editableFiles = clean(body.editable_files || "Not included", 100);
+          const designStatus = clean(body.design_status || "Completed design", 100);
+          const intendedCountry = clean(body.intended_country || "Uganda", 100);
+          if (!allowedPackages.includes(designPackage)) return json({ error: "Choose a valid design package." }, 400, headers);
+          if (!includedDrawings) return json({ error: "Select at least one included drawing or deliverable." }, 400, headers);
+          if (!["PDF drawings", "Editable CAD files (DWG/DXF)", "PDF and editable CAD files", "Other — specify in description"].includes(fileFormat)) return json({ error: "Choose a valid file format." }, 400, headers);
+          if (!["Included", "Not included — PDF or image files only", "Available by agreement"].includes(editableFiles)) return json({ error: "Choose a valid editable-file option." }, 400, headers);
+          if (!["Completed design", "Concept design only", "Completed design that can be customised"].includes(designStatus)) return json({ error: "Choose a valid design status." }, 400, headers);
+          if (!intendedCountry) return json({ error: "Choose the intended country of use." }, 400, headers);
           let bytes: Uint8Array | null = null, ext = "", safeName = "";
           let previewBytes: Uint8Array | null = null, previewExt = "", previewName = "";
           if (designFile) {
@@ -467,8 +506,8 @@ export default {
             if (!validImage) return json({ error: "The preview file does not appear to be a valid image." }, 400, headers);
           }
           await ensureDesignSubmissionFiles(env);
-          const saved = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'pending', datetime('now'))")
-            .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio).run();
+          const saved = await env.DB.prepare("INSERT INTO designs (title, description, category, designer_name, designer_email, designer_phone, portfolio_url, rights_confirmed, design_package, included_drawings, file_format, editable_files, design_status, intended_country, status, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'))")
+            .bind(title, clean(body.description, 3000), category, name, email, phone, portfolio, designPackage, includedDrawings, fileFormat, editableFiles, designStatus, intendedCountry).run();
           const designId = Number(saved.meta?.last_row_id || 0);
           if ((designFile && bytes || previewFile && previewBytes) && designId) {
             if (!env.MEDIA || typeof env.MEDIA.put !== "function") {
