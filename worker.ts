@@ -134,7 +134,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
   }
   const privateFileMatch = path.match(/^\\/api\\/admin\\/design-submissions\\/(\\d+)\\/files\\/(\\d+)$/);
   if (privateFileMatch && request.method === "GET") {
-    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS design_submission_files (id INTEGER PRIMARY KEY AUTOINCREMENT, design_id INTEGER NOT NULL, object_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, content_type TEXT NOT NULL, file_size INTEGER NOT NULL, file_kind TEXT NOT NULL DEFAULT 'architectural', created_at TEXT NOT NULL DEFAULT (datetime('now')), FOREIGN KEY(design_id) REFERENCES designs(id) ON DELETE CASCADE)").run();
     const row = await env.DB.prepare("SELECT object_key, file_name FROM design_submission_files WHERE id = ? AND design_id = ?").bind(Number(privateFileMatch[2]), Number(privateFileMatch[1])).first();
     if (!row || !env.MEDIA || typeof env.MEDIA.get !== "function") return json({ error: "File not found." }, 404);
     const object = await env.MEDIA.get(row.object_key);
@@ -352,7 +352,9 @@ export default {
             const form = await request.formData();
             body = Object.fromEntries(Array.from(form.entries()).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
             const uploaded = form.get("design_file");
+            const preview = form.get("preview_image");
             if (uploaded instanceof File && uploaded.size > 0) designFile = uploaded;
+            if (preview instanceof File && preview.size > 0) previewFile = preview;
           } else {
             body = await readBody(request);
           }
