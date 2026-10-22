@@ -629,3 +629,27 @@ footer a:hover{color:#e1bb60}
 .category-image-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,150px);gap:12px;align-items:center}
 .category-image-edit-row img{display:block;width:100%;height:90px;object-fit:cover;border-radius:8px;background:#edf1f5;border:1px solid var(--line)}
 @media(max-width:520px){.category-image-edit-row{grid-template-columns:1fr}.category-image-edit-row img{height:150px;max-width:100%}}
+
+
+/* Multi-image category galleries for Construction and Services */
+.category-image-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;width:100%;margin:0 0 4px}
+.category-image-gallery .category-image{width:100%;height:112px;min-width:0;object-fit:cover;border-radius:5px}
+.category-image-gallery .category-image:first-child{grid-column:1/-1;height:190px}
+.category-gallery-editor-row{display:grid;grid-template-columns:1fr;align-items:start;padding:16px 0;border-bottom:1px solid var(--line)}
+.category-gallery-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--navy)}
+.category-gallery-heading span{font-size:12px;color:var(--muted);white-space:nowrap}
+.category-gallery-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.category-gallery-slot{min-width:0;display:flex;flex-direction:column;gap:7px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.category-gallery-slot img{width:100%;height:120px;object-fit:cover;border-radius:6px}
+.category-gallery-slot>span{font-size:12px;color:var(--muted)}
+.category-gallery-slot .admin-delete{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:8px;border:1px solid #e2b8b8;border-radius:7px;background:#fff6f6;color:#9f2424;font-weight:700}
+.category-gallery-slots .image-upload-field{grid-column:1/-1}
+.category-gallery-editor-row>.admin-field input{width:100%;box-sizing:border-box}
+@media(max-width:520px){
+ .category-image-gallery .category-image{height:95px}
+ .category-image-gallery .category-image:first-child{height:165px}
+ .category-gallery-slots{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .category-gallery-slot{padding:7px}
+ .category-gallery-slot img{height:100px}
+ .category-gallery-heading{align-items:flex-start;flex-direction:column;gap:4px}
+}
