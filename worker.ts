@@ -197,11 +197,11 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const allowed = ["heroTitle", "heroText", ...imageCategoryNames.flatMap((name) => ["categoryImage:" + name, "categoryImages:" + name])];
     for (const key of allowed) {
       if (typeof body[key] === "string") {
-        const value = clean(body[key], key === "heroText" ? 600 : 1000);
+        const value = clean(body[key], key.startsWith("categoryImages:") ? 7000 : key === "heroText" ? 600 : 1000);
         if (key.startsWith("categoryImages:") && value) {
           let images: unknown;
           try { images = JSON.parse(value); } catch { return json({ error: "Category gallery must be a valid image list." }, 400); }
-          if (!Array.isArray(images) || images.length > 7 || images.some((image) => typeof image !== "string" || image.length > 1000 || !/^https:\/\//i.test(image))) {
+          if (!Array.isArray(images) || images.length > 7 || images.some((image) => typeof image !== "string" || image.length > 1000 || !(/^https:\/\//i.test(image) || /^\/media\/uploads\/(?:construction|services)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/i.test(image)))) {
             return json({ error: "Each category can have up to 7 HTTPS image URLs." }, 400);
           }
         }
