@@ -709,3 +709,15 @@ footer a:hover{color:#e1bb60}
 .admin-review-actions .btn{min-height:44px}
 .admin-review-actions .btn:disabled{opacity:.6;cursor:not-allowed}
 @media(max-width:600px){.admin-review-actions{display:grid;grid-template-columns:1fr}.admin-review-actions .btn{width:100%;justify-content:center;white-space:normal}.admin-list-item .admin-field textarea{width:100%;box-sizing:border-box}}
+
+
+/* Design Marketplace package-scope fields */
+.market-scope-fieldset{border:1px solid var(--line);border-radius:12px;padding:14px;margin:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.market-scope-fieldset legend{font-weight:750;padding:0 6px}
+.market-scope-fieldset>p{grid-column:1/-1;margin:0}
+.market-scope-option{display:flex!important;align-items:flex-start;gap:9px;font-weight:500!important;line-height:1.4}
+.market-scope-option input{width:18px;min-width:18px;height:18px;margin-top:2px}
+.catalogue-scope,.admin-design-scope{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--soft);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.catalogue-scope>strong,.admin-design-scope>strong{display:block;margin-bottom:7px}
+.catalogue-scope p,.admin-design-scope p{margin:5px 0}
+@media(max-width:600px){.market-scope-fieldset{grid-template-columns:1fr;padding:12px}.market-scope-fieldset legend{font-size:14px}}
