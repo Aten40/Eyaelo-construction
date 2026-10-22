@@ -702,3 +702,10 @@ footer a:hover{color:#e1bb60}
  .marketplace-page #freelance-designers .market-form{padding:18px 15px}
  .marketplace-page #freelance-designers .form-grid{grid-template-columns:minmax(0,1fr)}
 }
+
+
+/* Design marketplace admin review actions */
+.admin-review-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.admin-review-actions .btn{min-height:44px}
+.admin-review-actions .btn:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:600px){.admin-review-actions{display:grid;grid-template-columns:1fr}.admin-review-actions .btn{width:100%;justify-content:center;white-space:normal}.admin-list-item .admin-field textarea{width:100%;box-sizing:border-box}}
