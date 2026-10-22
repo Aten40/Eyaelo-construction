@@ -2,13 +2,14 @@ import { FormEvent, useEffect, useState } from 'react';
 import { LockKeyhole, LogOut, Plus, Save, Trash2, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 type Row = Record<string, any>;
-type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'enquiries' | 'settings' | 'images';
+type Tab = 'products' | 'services' | 'projects' | 'videos' | 'designs' | 'design-submissions' | 'enquiries' | 'settings' | 'images';
 const tabs: { key: Tab; label: string }[] = [
   { key: 'products', label: 'Materials & products' },
   { key: 'services', label: 'Services' },
   { key: 'projects', label: 'Projects' },
   { key: 'videos', label: 'Videos' },
   { key: 'designs', label: 'Design catalogue' },
+  { key: 'design-submissions', label: 'Designer submissions' },
   { key: 'enquiries', label: 'Customer enquiries' },
   { key: 'settings', label: 'Home page text' },
   { key: 'images', label: 'Category photos' },
@@ -270,6 +271,14 @@ export default function AdminPage() {
           <label className="admin-field"><span>Introductory text</span><textarea rows={4} value={settings.heroText} onChange={e => setSettings({ ...settings, heroText: e.target.value })} maxLength={600} required /></label>
           <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> Save home page text</button>
         </form>
+      ) : tab === 'design-submissions' ? (
+        <div className="admin-list-wrap">
+          <div className="admin-list-heading"><h2>Private designer submissions</h2><button type="button" className="btn outline" onClick={() => load('design-submissions')}><RefreshCw size={15}/> Refresh</button></div>
+          <p className="admin-hint">Uploaded architectural files are stored privately in Cloudflare R2. Download links require an active administrator session. Review the submission here, then use Design catalogue to publish an approved listing.</p>
+          {rows.length === 0 ? <p>No pending designer submissions or private files were found.</p> : rows.map(row => <article className="admin-list-item enquiry-item" key={String(row.id) + '-' + String(row.file_id || 'no-file')}>
+            <div className="admin-item-main"><strong>#{row.id} · {row.title}</strong><span>{row.category} · {row.status || 'pending review'}</span><p>{row.designer_name} · {row.designer_email} · {row.designer_phone}</p><p className="admin-details">{row.description || ''}</p>{row.portfolio_url && <p><a href={row.portfolio_url} target="_blank" rel="noopener noreferrer">Open portfolio link</a></p>}{row.file_id ? <p><a className="btn outline" href={'/api/admin/design-submissions/' + row.id + '/files/' + row.file_id}><span>Download private file · {row.file_name} ({Math.max(1, Math.round(Number(row.file_size || 0) / 1024))} KB)</span></a></p> : <p className="admin-hint">No architectural file attached.</p>}</div>
+          </article>)}
+        </div>
       ) : tab === 'enquiries' ? (
         <div className="admin-list-wrap">
           <div className="admin-list-heading"><h2>Customer enquiries</h2><button type="button" className="btn outline" onClick={() => load('enquiries')}><RefreshCw size={15}/> Refresh</button></div>
