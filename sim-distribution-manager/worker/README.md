@@ -5,12 +5,12 @@ Deployed separately at `https://eyaelo-sim-manager.martinelolu30.workers.dev/`. 
 ## Current deployed behaviour
 - The dashboard is served by this Worker and calls its API on the same origin.
 - Paste the administrator token into the dashboard to connect. The page does not save the token in browser storage; disconnect clears it from the page.
-- The private token is stored as a Cloudflare Worker secret named `ADMIN_API_TOKEN`. Retrieve it only from the secure deployment process; never commit it to Git.
+- The private token is stored as a Cloudflare Worker secret named `ADMIN_API_TOKEN`. The initial token was supplied to the owner in the deployment conversation; keep it private and rotate it if it is exposed.
 
 ## Current API behaviour
 - Authenticates protected routes with a server-side `ADMIN_API_TOKEN` secret.
-- Uses a strict configured `APP_ORIGIN` for browser CORS.
-- Supports SIM list/create/update, recharge list/create-draft, and summary reports.
+- Serves the dashboard and API from the same origin, so cross-origin browser access is not needed.
+- Supports SIM list/create, recharge list/create-draft, and summary reports. SIM update is not yet exposed in the deployed API.
 - Recharge creation writes a `draft` only. It never calls an airtime provider.
 - Never infer network usage or commission from recharge amounts.
 
@@ -23,6 +23,6 @@ Deployed separately at `https://eyaelo-sim-manager.martinelolu30.workers.dev/`. 
 
 ## Important limitations
 - No user/password login, sessions, role management, provider connector, provider callbacks, or real recharge submission is implemented.
-- The API is not production-ready until rate limiting, robust authentication/session design, duplicate-idempotency error handling, backups, monitoring, and automated tests are completed.
+- The API is a draft-only test build, not production-ready. Add rate limiting, robust authentication/session design, stronger audit actor identity, backup/restore, monitoring, and automated tests before wider use.
 - The Wrangler development config still contains an `APP_ORIGIN` placeholder and is not the deployment mechanism used for the current direct API deployment. Replace it before using Wrangler to deploy.
 - Provider secrets must be stored with Worker secrets and must never be exposed to browser code.
