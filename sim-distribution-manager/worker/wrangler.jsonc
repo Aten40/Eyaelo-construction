@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "eyaelo-sim-manager-db",
-      "database_id": "REPLACE_WITH_NEW_SIM_MANAGER_D1_DATABASE_ID"
+      "database_id": "00000000-0000-0000-0000-000000000000"
     }
   ]
 }
