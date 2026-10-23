@@ -18,8 +18,52 @@ function usePublicContent(): DynamicContent {
  return content
 }
 
+const seoByPath: Record<string, { title: string; description: string; noindex?: boolean }> = {
+ '/': { title: 'Eyaelo Construction Ltd | Construction Company in Uganda', description: 'Explore Eyaelo Construction Ltd construction services, civil works, building-materials quotation enquiries and design opportunities in Uganda.' },
+ '/construction': { title: 'Building Construction Services in Uganda | Eyaelo', description: 'Discuss residential, commercial, institutional, industrial and civil infrastructure construction requirements with Eyaelo Construction Ltd.' },
+ '/services': { title: 'Construction and Civil Works Services in Uganda | Eyaelo', description: 'Explore site clearance, earthworks, concrete, formwork, waterproofing, paving and other construction support services from Eyaelo.' },
+ '/projects': { title: 'Construction Projects and Portfolio | Eyaelo Uganda', description: 'Explore Eyaelo Construction Ltd project information and verified portfolio updates across construction and civil works.' },
+ '/videos': { title: 'Construction Videos and Building Guides | Eyaelo', description: 'Watch construction insights, project highlights and building-material guides from Eyaelo Construction Ltd.' },
+ '/design-marketplace': { title: 'Architectural Designs and House Plans | Eyaelo Marketplace', description: 'Explore design opportunities and submit completed architectural design packages for Eyaelo review and possible publication.' },
+ '/building-materials': { title: 'Building Materials Supply Enquiries in Uganda | Eyaelo', description: 'Request quotations for cement, bricks, sand, aggregates, reinforcement steel and other building materials in Uganda.' },
+ '/shop': { title: 'Eyaelo Online Store | Coming Soon', description: 'Eyaelo online checkout is not yet available. Submit a building-materials enquiry to request supplier pricing and delivery review.', noindex: true },
+ '/about': { title: 'About Eyaelo Construction Ltd | Uganda', description: 'Learn about Eyaelo Construction Ltd and its construction, civil works and building-materials enquiry services in Uganda.' },
+ '/careers': { title: 'Careers and Job Applications | Eyaelo Construction Ltd', description: 'Submit a career application to Eyaelo Construction Ltd and share your construction, engineering, trade or operations experience.' },
+ '/contact': { title: 'Contact Eyaelo Construction Ltd | Uganda', description: 'Contact Eyaelo Construction Ltd about construction projects, civil works and building-materials quotations in Uganda.' },
+ '/quote': { title: 'Request a Construction Quote | Eyaelo', description: 'Share your construction project scope with Eyaelo Construction Ltd to begin a quotation discussion.', noindex: true },
+ '/material-enquiry': { title: 'Request Building Materials Pricing | Eyaelo', description: 'Send material types, quantities, specifications and delivery location for a building-materials quotation review.', noindex: true },
+ '/privacy': { title: 'Privacy Policy | Eyaelo Construction Ltd', description: 'Read how Eyaelo Construction Ltd handles information submitted through its website.' },
+ '/terms': { title: 'Terms and Conditions | Eyaelo Construction Ltd', description: 'Read the website terms for Eyaelo Construction Ltd construction and materials enquiries.' },
+ '/delivery': { title: 'Delivery Policy | Eyaelo Construction Ltd', description: 'Review delivery arrangements and requirements for Eyaelo building-materials enquiries.' },
+ '/returns': { title: 'Returns and Refund Policy | Eyaelo Construction Ltd', description: 'Review the current returns and refund information for Eyaelo Construction Ltd.' },
+ '/ecommerce-terms': { title: 'Marketplace Terms | Eyaelo Construction Ltd', description: 'Read terms relating to design marketplace enquiries, design submissions and potential licensing.' },
+ '/admin': { title: 'Admin | Eyaelo Construction Ltd', description: 'Private website administration area.', noindex: true },
+}
+function setMeta(attribute: 'name' | 'property', key: string, content: string) {
+ let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${key}"]`)
+ if (!element) { element = document.createElement('meta'); element.setAttribute(attribute, key); document.head.appendChild(element) }
+ element.content = content
+}
+function usePageSeo(pathname: string) {
+ useEffect(() => {
+  const page = seoByPath[pathname] || { title: 'Page Not Found | Eyaelo Construction Ltd', description: 'This Eyaelo Construction Ltd page could not be found.' }
+  document.title = page.title
+  setMeta('name', 'description', page.description)
+  setMeta('name', 'robots', page.noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large')
+  setMeta('property', 'og:title', page.title)
+  setMeta('property', 'og:description', page.description)
+  setMeta('property', 'og:url', window.location.origin + (pathname === '/' ? '/' : pathname))
+  setMeta('name', 'twitter:title', page.title)
+  setMeta('name', 'twitter:description', page.description)
+  let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+  if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical) }
+  canonical.href = window.location.origin + (pathname === '/' ? '/' : pathname)
+ }, [pathname])
+}
+
 function Layout({children}:{children:React.ReactNode}){
  const [open,setOpen]=useState(false); const loc=useLocation()
+ usePageSeo(loc.pathname)
  useEffect(()=>{window.scrollTo({top:0,left:0,behavior:'auto'})},[loc.pathname,loc.search])
  const whatsapp=siteConfig.whatsappNumber ? `https://wa.me/${siteConfig.whatsappNumber}?text=${encodeURIComponent(siteConfig.whatsappMessage)}` : '#contact'
  return <div className="site-shell">
