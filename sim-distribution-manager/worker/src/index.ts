@@ -1,156 +1,19 @@
-export interface Env {
-  DB: D1Database;
-  ADMIN_API_TOKEN: string;
-  APP_ORIGIN: string;
-}
-
-type SimNetwork = "MTN" | "Vodacom" | "Cell C" | "Telkom";
-const NETWORKS: SimNetwork[] = ["MTN", "Vodacom", "Cell C", "Telkom"];
-const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
-
-function json(data: unknown, status = 200, extra: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(data), { status, headers: { ...JSON_HEADERS, ...extra } });
-}
-function cors(request: Request, env: Env): Record<string, string> {
-  const origin = request.headers.get("Origin");
-  const headers: Record<string, string> = { "vary": "Origin", "access-control-allow-methods": "GET,POST,PATCH,OPTIONS", "access-control-allow-headers": "Authorization,Content-Type", "access-control-max-age": "600" };
-  if (origin && origin === env.APP_ORIGIN) headers["access-control-allow-origin"] = origin;
-  return headers;
-}
-async function authorised(request: Request, env: Env): Promise<boolean> {
-  const header = request.headers.get("Authorization") || "";
-  const supplied = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!supplied || !env.ADMIN_API_TOKEN) return false;
-  const a = new TextEncoder().encode(supplied);
-  const b = new TextEncoder().encode(env.ADMIN_API_TOKEN);
-  if (a.length !== b.length) return false;
-  const digestA = await crypto.subtle.digest("SHA-256", a);
-  const digestB = await crypto.subtle.digest("SHA-256", b);
-  const x = new Uint8Array(digestA); const y = new Uint8Array(digestB);
-  let diff = 0; for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
-  return diff === 0;
-}
-async function bodyObject(request: Request): Promise<Record<string, unknown> | null> {
-  const type = request.headers.get("content-type") || "";
-  if (!type.toLowerCase().includes("application/json")) return null;
-  try { const value: unknown = await request.json(); return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
-  catch { return null; }
-}
-function str(value: unknown, max = 200): string | null {
-  if (typeof value !== "string") return null;
-  const v = value.trim();
-  return v.length > 0 && v.length <= max ? v : null;
-}
-function uuid(): string { return crypto.randomUUID(); }
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const headers = cors(request, env);
-    if (request.method === "OPTIONS") {
-      if (!request.headers.get("Origin") || request.headers.get("Origin") !== env.APP_ORIGIN) return json({ error: "origin_not_allowed" }, 403);
-      return new Response(null, { status: 204, headers });
-    }
-    if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, service: "eyaelo-sim-manager-api", mode: "draft-only" }, 200, headers);
-    if (!url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404, headers);
-    if (!await authorised(request, env)) return json({ error: "unauthorised" }, 401, headers);
-
-    try {
-      if (url.pathname === "/api/sims" && request.method === "GET") {
-        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
-        const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
-        const q = (url.searchParams.get("q") || "").trim().slice(0, 80);
-        const result = q
-          ? await env.DB.prepare("SELECT * FROM sim_cards WHERE phone_number LIKE ? OR network LIKE ? OR COALESCE(assigned_agent,'') LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?").bind(`%${q}%`, `%${q}%`, `%${q}%`, limit, offset).all()
-          : await env.DB.prepare("SELECT * FROM sim_cards ORDER BY created_at DESC LIMIT ? OFFSET ?").bind(limit, offset).all();
-        return json({ data: result.results, limit, offset }, 200, headers);
-      }
-
-      if (url.pathname === "/api/sims" && request.method === "POST") {
-        const body = await bodyObject(request);
-        if (!body) return json({ error: "invalid_json" }, 400, headers);
-        const phone = str(body.phone_number, 20);
-        const network = str(body.network, 20) as SimNetwork | null;
-        if (!phone || !/^\+?[0-9]{8,15}$/.test(phone) || !network || !NETWORKS.includes(network)) return json({ error: "invalid_phone_or_network" }, 400, headers);
-        const agent = body.assigned_agent == null || body.assigned_agent === "" ? null : str(body.assigned_agent, 120);
-        const location = body.assigned_location == null || body.assigned_location === "" ? null : str(body.assigned_location, 120);
-        if (body.assigned_agent && !agent || body.assigned_location && !location) return json({ error: "invalid_optional_field" }, 400, headers);
-        const id = uuid();
-        const actor = "admin-token";
-        await env.DB.batch([
-          env.DB.prepare("INSERT INTO sim_cards (id, phone_number, network, assigned_agent, assigned_location, registration_date, status, notes) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)").bind(id, phone, network, agent, location, str(body.registration_date, 10), str(body.notes, 500)),
-          env.DB.prepare("INSERT INTO audit_events (id, actor_id, action, entity_type, entity_id, outcome) VALUES (?, ?, 'sim.create', 'sim_card', ?, 'success')").bind(uuid(), actor.slice(0, 120), id)
-        ]);
-        return json({ id, phone_number: phone, network, status: "active" }, 201, headers);
-      }
-
-      const simMatch = url.pathname.match(/^\/api\/sims\/([a-f0-9-]{36})$/i);
-      if (simMatch && request.method === "PATCH") {
-        const body = await bodyObject(request);
-        if (!body) return json({ error: "invalid_json" }, 400, headers);
-        const allowed = ["assigned_agent", "assigned_location", "registration_date", "status", "notes"] as const;
-        const values: unknown[] = [];
-        const sets: string[] = [];
-        for (const field of allowed) {
-          if (!(field in body)) continue;
-          let value: unknown = body[field];
-          if (field === "status") {
-            if (!["active", "inactive", "suspended", "lost", "closed"].includes(String(value))) return json({ error: "invalid_status" }, 400, headers);
-          } else if (field === "registration_date") {
-            if (value !== null && value !== "" && (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))) return json({ error: "invalid_date" }, 400, headers);
-            if (value === "") value = null;
-          } else if (field === "notes") {
-            if (value !== null && value !== "") { value = str(value, 500); if (!value) return json({ error: "invalid_notes" }, 400, headers); } else value = null;
-          } else {
-            if (value !== null && value !== "") { value = str(value, 120); if (!value) return json({ error: "invalid_field" }, 400, headers); } else value = null;
-          }
-          sets.push(field + " = ?"); values.push(value);
-        }
-        if (!sets.length) return json({ error: "no_editable_fields" }, 400, headers);
-        sets.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')");
-        values.push(simMatch[1]);
-        const result = await env.DB.prepare(`UPDATE sim_cards SET ${sets.join(", ")} WHERE id = ?`).bind(...values).run();
-        if (!result.meta.changes) return json({ error: "sim_not_found" }, 404, headers);
-        await env.DB.prepare("INSERT INTO audit_events (id, actor_id, action, entity_type, entity_id, outcome) VALUES (?, 'admin-token', 'sim.update', 'sim_card', ?, 'success')").bind(uuid(), simMatch[1]).run();
-        return json({ ok: true }, 200, headers);
-      }
-
-      if (url.pathname === "/api/recharges" && request.method === "GET") {
-        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 50));
-        const result = await env.DB.prepare("SELECT * FROM recharge_transactions ORDER BY created_at DESC LIMIT ?").bind(limit).all();
-        return json({ data: result.results }, 200, headers);
-      }
-
-      if (url.pathname === "/api/recharges" && request.method === "POST") {
-        const body = await bodyObject(request);
-        if (!body) return json({ error: "invalid_json" }, 400, headers);
-        const simId = str(body.sim_card_id, 36);
-        const amount = Number(body.amount_cents);
-        const idempotencyKey = str(body.idempotency_key, 100);
-        if (!simId || !Number.isSafeInteger(amount) || amount < 100 || amount > 10000000 || !idempotencyKey) return json({ error: "invalid_recharge_request" }, 400, headers);
-        const sim = await env.DB.prepare("SELECT id, phone_number, network, status FROM sim_cards WHERE id = ?").bind(simId).first<{id:string;phone_number:string;network:SimNetwork;status:string}>();
-        if (!sim) return json({ error: "sim_not_found" }, 404, headers);
-        if (sim.status !== "active") return json({ error: "sim_not_active" }, 409, headers);
-        const id = uuid();
-        await env.DB.batch([
-          env.DB.prepare("INSERT INTO recharge_transactions (id, sim_card_id, phone_number_snapshot, network_snapshot, amount_cents, status, idempotency_key, requested_by, request_source) VALUES (?, ?, ?, ?, ?, 'draft', ?, 'admin-token', 'admin')").bind(id, sim.id, sim.phone_number, sim.network, amount, idempotencyKey),
-          env.DB.prepare("INSERT INTO audit_events (id, actor_id, action, entity_type, entity_id, outcome) VALUES (?, 'admin-token', 'recharge.draft_created', 'recharge_transaction', ?, 'success')").bind(uuid(), id)
-        ]);
-        return json({ id, status: "draft", message: "Draft saved only; no airtime was sent." }, 201, headers);
-      }
-
-      if (url.pathname === "/api/reports/summary" && request.method === "GET") {
-        const sims = await env.DB.prepare("SELECT network, status, COUNT(*) AS count FROM sim_cards GROUP BY network, status").all();
-        const recharges = await env.DB.prepare("SELECT status, COUNT(*) AS count, COALESCE(SUM(amount_cents),0) AS amount_cents FROM recharge_transactions GROUP BY status").all();
-        const commissions = await env.DB.prepare("SELECT network, status, COALESCE(SUM(amount_cents),0) AS amount_cents FROM commission_statements GROUP BY network, status").all();
-        return json({ sims: sims.results, recharges: recharges.results, commissions: commissions.results }, 200, headers);
-      }
-      return json({ error: "not_found" }, 404, headers);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "unknown_error";
-      if (message.includes("UNIQUE constraint failed")) return json({ error: "duplicate_record_or_idempotency_key" }, 409, headers);
-      console.error(JSON.stringify({ level: "error", route: url.pathname, message }));
-      return json({ error: "internal_error" }, 500, headers);
-    }
-  }
-};
+const HTML = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Eyaelo SIM Distribution Manager</title><style>\n:root{font-family:system-ui,sans-serif;color:#18283e;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}.head{background:#10213a;color:#fff;padding:22px 5vw;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.brand{font-size:20px;font-weight:800}.brand small{display:block;color:#f0c66b;font-size:10px;letter-spacing:2px;margin-top:4px}.wrap{max-width:1100px;margin:auto;padding:22px 4vw}.notice{padding:13px;background:#fff7e3;border:1px solid #edd9a3;border-radius:10px;font-size:13px;line-height:1.5;margin-bottom:16px}.panel,.stat,.auth{background:white;border:1px solid #e0e7f0;border-radius:12px;padding:16px;margin-bottom:14px}.auth{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.auth label{flex:1;min-width:220px}label{font-size:12px;color:#637188;display:block;font-weight:650}input,select,button{font:inherit;font-size:13px;padding:10px;border:1px solid #d2dce8;border-radius:8px;background:#fff;width:100%;margin-top:5px}button{width:auto;cursor:pointer;font-weight:700}.primary{background:#172b46;color:white}.gold{background:#f0c66b}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat small{color:#748198}.stat strong{display:block;font-size:26px;margin-top:7px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.panel h2{font-size:16px;margin:0 0 12px}.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input{max-width:320px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:10px 8px;text-align:left;border-bottom:1px solid #edf1f6}th{font-size:10px;color:#748198;text-transform:uppercase}.table{overflow:auto}.muted{font-size:12px;color:#77859a;line-height:1.5}.hidden{display:none}.msg{font-size:12px;margin:8px 0;min-height:16px;color:#28734b}@media(max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}.cols,.form{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:14px}}\n</style></head><body><header class=\"head\"><div class=\"brand\">Eyaelo SIM Distribution Manager<small>SOUTH AFRICA · SIM OPERATIONS</small></div><b style=\"color:#f0c66b;font-size:12px\">DRAFT-ONLY MODE</b></header><main class=\"wrap\"><div class=\"notice\"><b>Safe testing:</b> SIM records save to the dedicated database. Recharge requests are drafts only; no airtime is sent. Commissions are not inferred from airtime purchases.</div><section class=\"auth\"><label>Administrator access token<input id=\"token\" type=\"password\" autocomplete=\"off\" placeholder=\"Paste your private token\"></label><button id=\"connect\" class=\"primary\">Connect</button><button id=\"disconnect\">Disconnect</button></section><div class=\"msg\" id=\"msg\">Connect to load saved records.</div><div id=\"app\" class=\"hidden\"><div class=\"grid\"><div class=\"stat\"><small>Registered SIMs</small><strong id=\"total\">0</strong></div><div class=\"stat\"><small>Active SIMs</small><strong id=\"active\">0</strong></div><div class=\"stat\"><small>Recharge drafts</small><strong id=\"drafts\">0</strong></div><div class=\"stat\"><small>Draft value (not spent)</small><strong id=\"value\">R0.00</strong></div></div><section class=\"panel\"><h2>SIM register</h2><div class=\"row\"><input id=\"search\" placeholder=\"Search phone, network or agent\"><button id=\"refresh\">Refresh</button><button id=\"export\" class=\"gold\">Export CSV</button></div><div class=\"table\"><table><thead><tr><th>Phone</th><th>Network</th><th>Agent / area</th><th>Status</th><th>Added</th></tr></thead><tbody id=\"rows\"></tbody></table></div></section><div class=\"cols\"><section class=\"panel\"><h2>Register SIM</h2><form id=\"simForm\" class=\"form\"><label>Phone number<input id=\"phone\" placeholder=\"+27821234567\" required maxlength=\"20\"></label><label>Network<select id=\"network\"><option>MTN</option><option>Vodacom</option><option>Cell C</option><option>Telkom</option></select></label><label>Agent / area<input id=\"agent\" maxlength=\"120\"></label><label>Registration date<input id=\"date\" type=\"date\"></label><label class=\"full\">Notes<input id=\"notes\" maxlength=\"500\" placeholder=\"No PINs or OTPs\"></label><div class=\"full\"><button class=\"primary\">Save SIM record</button></div></form></section><section class=\"panel\"><h2>Create recharge draft</h2><form id=\"rechargeForm\" class=\"form\"><label class=\"full\">SIM line<select id=\"simSelect\" required></select></label><label>Amount<select id=\"amount\"><option value=\"500\">R5.00</option><option value=\"1000\">R10.00</option><option value=\"2000\">R20.00</option><option value=\"5000\">R50.00</option><option value=\"10000\">R100.00</option></select></label><div class=\"full\"><button class=\"gold\">Save draft only</button></div></form><p class=\"muted\">No provider call or airtime purchase occurs.</p></section></div><section class=\"panel\"><h2>Recharge requests</h2><div class=\"table\"><table><thead><tr><th>Phone</th><th>Network</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody id=\"recharges\"></tbody></table></div></section></div><p class=\"muted\">Separate from the construction website. Never enter SIM PINs, PUKs, banking PINs or OTPs.</p></main>\n<script>(()=>{let key='',sims=[],recharges=[];const $=id=>document.getElementById(id);const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));function message(t,bad=false){$('msg').textContent=t;$('msg').style.color=bad?'#b54708':'#28734b'}async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{'content-type':'application/json','authorization':'Bearer '+key,...opts.headers}});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d}const cash=c=>'R'+(Number(c||0)/100).toFixed(2);function render(){const q=$('search').value.toLowerCase();const list=sims.filter(s=>(s.phone_number+' '+s.network+' '+(s.assigned_agent||'')).toLowerCase().includes(q));$('rows').innerHTML=list.map(s=>'<tr><td>'+esc(s.phone_number)+'</td><td>'+esc(s.network)+'</td><td>'+esc(s.assigned_agent||'—')+'</td><td>'+esc(s.status)+'</td><td>'+esc((s.registration_date||s.created_at||'').slice(0,10))+'</td></tr>').join('')||'<tr><td colspan=\"5\">No SIM records found.</td></tr>';$('total').textContent=sims.length;$('active').textContent=sims.filter(s=>s.status==='active').length;$('drafts').textContent=recharges.filter(r=>r.status==='draft').length;$('value').textContent=cash(recharges.filter(r=>r.status==='draft').reduce((n,r)=>n+Number(r.amount_cents),0));$('simSelect').innerHTML=sims.map(s=>'<option value=\"'+esc(s.id)+'\">'+esc(s.phone_number)+' · '+esc(s.network)+'</option>').join('');$('recharges').innerHTML=recharges.map(r=>'<tr><td>'+esc(r.phone_number_snapshot)+'</td><td>'+esc(r.network_snapshot)+'</td><td>'+cash(r.amount_cents)+'</td><td>'+esc(r.status)+'</td><td>'+esc((r.created_at||'').slice(0,16).replace('T',' '))+'</td></tr>').join('')||'<tr><td colspan=\"5\">No recharge drafts.</td></tr>'}async function load(){const [a,b]=await Promise.all([api('/api/sims'),api('/api/recharges')]);sims=a.data||[];recharges=b.data||[];render();$('app').classList.remove('hidden');message('Connected. Saved records loaded.')} $('connect').onclick=async()=>{key=$('token').value.trim();try{if(!key)throw Error('Enter your access token');await load()}catch(e){key='';$('app').classList.add('hidden');message('Connection failed: '+e.message,true)}};$('disconnect').onclick=()=>{key='';$('token').value='';$('app').classList.add('hidden');message('Disconnected. Token is not saved in browser storage.')};$('refresh').onclick=()=>load().catch(e=>message(e.message,true));$('search').oninput=render;$('simForm').onsubmit=async e=>{e.preventDefault();try{await api('/api/sims',{method:'POST',body:JSON.stringify({phone_number:$('phone').value.trim(),network:$('network').value,assigned_agent:$('agent').value.trim()||null,registration_date:$('date').value||null,notes:$('notes').value.trim()||null})});$('simForm').reset();await load();message('SIM record saved.')}catch(e){message('Could not save: '+e.message,true)}};$('rechargeForm').onsubmit=async e=>{e.preventDefault();try{if(!$('simSelect').value)throw Error('Register a SIM first');await api('/api/recharges',{method:'POST',body:JSON.stringify({sim_card_id:$('simSelect').value,amount_cents:Number($('amount').value),idempotency_key:crypto.randomUUID()})});await load();message('Draft saved. No airtime was sent.')}catch(e){message('Could not save draft: '+e.message,true)}};$('export').onclick=()=>{const rows=[['Phone','Network','Agent','Status','Date'],...sims.map(s=>[s.phone_number,s.network,s.assigned_agent||'',s.status,s.registration_date||''])];const csv=rows.map(r=>r.map(v=>'\"'+String(v).replace(/\"/g,'\"\"')+'\"').join(',')).join('\\r\\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='eyaelo-sim-register.csv';a.click();URL.revokeObjectURL(a.href)}})();</script></body></html>";
+const JSON_HEADERS={"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
+function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:JSON_HEADERS});}
+async function authorized(req,env){const h=req.headers.get("Authorization")||"",t=h.startsWith("Bearer ")?h.slice(7):"";if(!t||!env.ADMIN_API_TOKEN)return false;const a=new TextEncoder().encode(t),b=new TextEncoder().encode(env.ADMIN_API_TOKEN);if(a.length!==b.length)return false;const x=new Uint8Array(await crypto.subtle.digest("SHA-256",a)),y=new Uint8Array(await crypto.subtle.digest("SHA-256",b));let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0;}
+async function body(req){try{const x=await req.json();return x&&typeof x==="object"&&!Array.isArray(x)?x:null}catch{return null}}
+function str(v,n=200){if(typeof v!=="string")return null;v=v.trim();return v&&v.length<=n?v:null}
+const networks=["MTN","Vodacom","Cell C","Telkom"];
+export default {async fetch(req,env){const u=new URL(req.url);if(req.method==="GET"&&u.pathname==="/")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
+if(req.method==="GET"&&u.pathname==="/api/health")return json({ok:true,service:"eyaelo-sim-manager",mode:"draft-only"});
+if(!u.pathname.startsWith("/api/"))return json({error:"not_found"},404);
+if(!await authorized(req,env))return json({error:"unauthorised"},401);
+try{
+if(u.pathname==="/api/sims"&&req.method==="GET"){const limit=Math.min(100,Math.max(1,Number(u.searchParams.get("limit"))||100));const r=await env.DB.prepare("SELECT * FROM sim_cards ORDER BY created_at DESC LIMIT ?").bind(limit).all();return json({data:r.results});}
+if(u.pathname==="/api/sims"&&req.method==="POST"){const b=await body(req);if(!b)return json({error:"invalid_json"},400);const phone=str(b.phone_number,20),network=str(b.network,20);if(!phone||!/^\+?[0-9]{8,15}$/.test(phone)||!networks.includes(network))return json({error:"invalid_phone_or_network"},400);const agent=b.assigned_agent==null||b.assigned_agent===""?null:str(b.assigned_agent,120),notes=b.notes==null||b.notes===""?null:str(b.notes,500);const date=b.registration_date==null||b.registration_date===""?null:(typeof b.registration_date==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(b.registration_date)?b.registration_date:null);if(b.assigned_agent&&!agent||b.notes&&!notes||b.registration_date&&!date)return json({error:"invalid_optional_field"},400);const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO sim_cards (id,phone_number,network,assigned_agent,registration_date,status,notes) VALUES (?,?,?,?,?,'active',?)").bind(id,phone,network,agent,date,notes),env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome) VALUES (?,'admin-token','sim.create','sim_card',?,'success')").bind(crypto.randomUUID(),id)]);return json({id,phone_number:phone,network,status:"active"},201);}
+if(u.pathname==="/api/recharges"&&req.method==="GET"){const limit=Math.min(100,Math.max(1,Number(u.searchParams.get("limit"))||100));const r=await env.DB.prepare("SELECT * FROM recharge_transactions ORDER BY created_at DESC LIMIT ?").bind(limit).all();return json({data:r.results});}
+if(u.pathname==="/api/recharges"&&req.method==="POST"){const b=await body(req);if(!b)return json({error:"invalid_json"},400);const simId=str(b.sim_card_id,36),amount=Number(b.amount_cents),key=str(b.idempotency_key,100);if(!simId||!Number.isSafeInteger(amount)||amount<100||amount>10000000||!key)return json({error:"invalid_recharge_request"},400);const sim=await env.DB.prepare("SELECT id,phone_number,network,status FROM sim_cards WHERE id=?").bind(simId).first();if(!sim)return json({error:"sim_not_found"},404);if(sim.status!=="active")return json({error:"sim_not_active"},409);const id=crypto.randomUUID();await env.DB.batch([env.DB.prepare("INSERT INTO recharge_transactions (id,sim_card_id,phone_number_snapshot,network_snapshot,amount_cents,status,idempotency_key,requested_by,request_source) VALUES (?,?,?,?,?,'draft',?,'admin-token','admin')").bind(id,sim.id,sim.phone_number,sim.network,amount,key),env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome) VALUES (?,'admin-token','recharge.draft_created','recharge_transaction',?,'success')").bind(crypto.randomUUID(),id)]);return json({id,status:"draft",message:"Draft saved only; no airtime was sent."},201);}
+if(u.pathname==="/api/reports/summary"&&req.method==="GET"){const a=await env.DB.prepare("SELECT network,status,COUNT(*) AS count FROM sim_cards GROUP BY network,status").all(),b=await env.DB.prepare("SELECT status,COUNT(*) AS count,COALESCE(SUM(amount_cents),0) AS amount_cents FROM recharge_transactions GROUP BY status").all(),c=await env.DB.prepare("SELECT network,status,COALESCE(SUM(amount_cents),0) AS amount_cents FROM commission_statements GROUP BY network,status").all();return json({sims:a.results,recharges:b.results,commissions:c.results});}
+return json({error:"not_found"},404);
+}catch(e){const m=e instanceof Error?e.message:"unknown_error";if(m.includes("UNIQUE constraint failed"))return json({error:"duplicate_record_or_idempotency_key"},409);console.error(JSON.stringify({level:"error",route:u.pathname,message:m}));return json({error:"internal_error"},500);}}};
