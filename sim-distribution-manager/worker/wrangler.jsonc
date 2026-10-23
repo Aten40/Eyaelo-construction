@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "eyaelo-sim-manager-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-23",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "APP_ORIGIN": "https://REPLACE-WITH-SIM-MANAGER-APP-DOMAIN"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "eyaelo-sim-manager-db",
+      "database_id": "REPLACE_WITH_NEW_SIM_MANAGER_D1_DATABASE_ID"
+    }
+  ]
+}
