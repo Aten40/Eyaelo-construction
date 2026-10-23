@@ -76,7 +76,7 @@ export default {
         const location = body.assigned_location == null || body.assigned_location === "" ? null : str(body.assigned_location, 120);
         if (body.assigned_agent && !agent || body.assigned_location && !location) return json({ error: "invalid_optional_field" }, 400, headers);
         const id = uuid();
-        const actor = request.headers.get("x-actor-id") || "admin-token";
+        const actor = "admin-token";
         await env.DB.batch([
           env.DB.prepare("INSERT INTO sim_cards (id, phone_number, network, assigned_agent, assigned_location, registration_date, status, notes) VALUES (?, ?, ?, ?, ?, ?, 'active', ?)").bind(id, phone, network, agent, location, str(body.registration_date, 10), str(body.notes, 500)),
           env.DB.prepare("INSERT INTO audit_events (id, actor_id, action, entity_type, entity_id, outcome) VALUES (?, ?, 'sim.create', 'sim_card', ?, 'success')").bind(uuid(), actor.slice(0, 120), id)
@@ -147,7 +147,9 @@ export default {
       }
       return json({ error: "not_found" }, 404, headers);
     } catch (error) {
-      console.error(JSON.stringify({ level: "error", route: url.pathname, message: error instanceof Error ? error.message : "unknown_error" }));
+      const message = error instanceof Error ? error.message : "unknown_error";
+      if (message.includes("UNIQUE constraint failed")) return json({ error: "duplicate_record_or_idempotency_key" }, 409, headers);
+      console.error(JSON.stringify({ level: "error", route: url.pathname, message }));
       return json({ error: "internal_error" }, 500, headers);
     }
   }
