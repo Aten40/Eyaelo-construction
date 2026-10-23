@@ -1,6 +1,11 @@
-# SIM Manager API Worker (not deployed)
+# SIM Manager API Worker (deployed draft-only test build)
 
-This is a separate Cloudflare Worker project and must remain independent of the construction website Worker.
+Deployed separately at `https://eyaelo-sim-manager.martinelolu30.workers.dev/`. It remains independent of the construction website Worker. Source is on the `feature/sim-distribution-manager-foundation` branch.
+
+## Current deployed behaviour
+- The dashboard is served by this Worker and calls its API on the same origin.
+- Paste the administrator token into the dashboard to connect. The page does not save the token in browser storage; disconnect clears it from the page.
+- The private token is stored as a Cloudflare Worker secret named `ADMIN_API_TOKEN`. Retrieve it only from the secure deployment process; never commit it to Git.
 
 ## Current API behaviour
 - Authenticates protected routes with a server-side `ADMIN_API_TOKEN` secret.
@@ -9,19 +14,15 @@ This is a separate Cloudflare Worker project and must remain independent of the 
 - Recharge creation writes a `draft` only. It never calls an airtime provider.
 - Never infer network usage or commission from recharge amounts.
 
-## Setup — do not deploy until all placeholders are replaced
-1. A dedicated D1 database named `eyaelo-sim-manager-db` has been created for this project. Its ID is already set in `wrangler.jsonc`. It is separate from the construction website database.
-2. The initial schema has been applied to the dedicated D1 database. Verify table creation before use.
-3. Set `APP_ORIGIN` to the final, exact origin of the separately hosted SIM-manager UI (no path or trailing slash).
-4. Install dependencies in this directory: `npm install`.
-5. For future schema changes, test locally first, then apply the reviewed migration to the dedicated database only.
-6. Set the secret interactively: `npx wrangler secret put ADMIN_API_TOKEN`. Use a long random token and never commit it or send it in chat.
-7. Test locally with `npm run dev` and `npm run check`. Confirm that unauthenticated protected routes return 401, allowed-origin requests work, disallowed origins are rejected by CORS, invalid payloads are rejected, and duplicate idempotency keys do not create duplicate transactions.
-8. **Before deployment**, put the admin UI behind Cloudflare Access or another reviewed identity/session layer. The bearer token mechanism is a foundation for controlled server-to-server/admin testing, not a substitute for a complete user/session system. Do not embed a permanent API token in public browser JavaScript.
-9. Deploy only after review: `npm run deploy`. This does not deploy the existing construction site, but it will publish this Worker if invoked.
+## Operations and remaining hardening
+1. The dedicated D1 database `eyaelo-sim-manager-db` is created and the five-table schema is applied.
+2. The Worker is deployed independently from the construction website and uses the dedicated D1 binding.
+3. The `ADMIN_API_TOKEN` secret is configured in Cloudflare.
+4. Before wider use, add Cloudflare Access or a reviewed identity/session layer, rate limiting, automated tests, backups, and monitoring.
+5. Do not use real customer SIM data until security and privacy controls have been reviewed. Never store PINs, PUKs, OTPs, or banking credentials.
 
 ## Important limitations
 - No user/password login, sessions, role management, provider connector, provider callbacks, or real recharge submission is implemented.
 - The API is not production-ready until rate limiting, robust authentication/session design, duplicate-idempotency error handling, backups, monitoring, and automated tests are completed.
-- The Wrangler config still contains an `APP_ORIGIN` placeholder. Do not deploy until it is replaced and all other deployment checks are complete.
+- The Wrangler development config still contains an `APP_ORIGIN` placeholder and is not the deployment mechanism used for the current direct API deployment. Replace it before using Wrangler to deploy.
 - Provider secrets must be stored with Worker secrets and must never be exposed to browser code.
