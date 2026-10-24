@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/sim-manager-provider-adapter
+      - feature/eyaelo-ocs-bridge-step1-4
     paths:
       - "sim-distribution-manager/worker/**"
       - "sim-distribution-manager/schema.sql"
