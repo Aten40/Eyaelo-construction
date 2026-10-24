@@ -7,6 +7,7 @@ set -euo pipefail
 IMAGE="${SIGSCALE_OCS_IMAGE:-sigscale/ocs}"
 CONTAINER="${EYAELO_OCS_CONTAINER:-eyaelo-sigscale-ocs}"
 VOLUME="${EYAELO_OCS_VOLUME:-eyaelo-ocs-db}"
+OCS_NODE_HOSTNAME="${EYAELO_OCS_NODE_HOSTNAME:-ocsnode.example.com}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install Docker Engine/Desktop, then rerun this script." >&2
@@ -23,10 +24,10 @@ docker pull "$IMAGE"
 docker volume create "$VOLUME" >/dev/null
 
 echo "Initializing the persistent OCS database volume..."
-docker run --rm --entrypoint bash -h host1 -v "$VOLUME:/home/otp/db" "$IMAGE" -lc "bin/initialize"
+docker run --rm --entrypoint bash -h "$OCS_NODE_HOSTNAME" -v "$VOLUME:/home/otp/db" "$IMAGE" -lc "bin/initialize"
 
 echo "Starting the OCS lab with host access restricted to localhost..."
-docker run -d --name "$CONTAINER" -h host1 \
+docker run -d --name "$CONTAINER" -h "$OCS_NODE_HOSTNAME" \
   -v "$VOLUME:/home/otp/db" \
   -p 127.0.0.1:8080:8080/tcp \
   -p 127.0.0.1:1812:1812/udp \
