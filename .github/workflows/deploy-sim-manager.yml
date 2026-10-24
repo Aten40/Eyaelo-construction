@@ -1,0 +1,46 @@
+name: Validate and deploy Eyaelo SIM Manager sandbox
+
+on:
+  push:
+    branches:
+      - feature/sim-manager-provider-adapter
+    paths:
+      - "sim-distribution-manager/worker/**"
+      - "sim-distribution-manager/schema.sql"
+      - ".github/workflows/deploy-sim-manager.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eyaelo-sim-manager-sandbox
+  cancel-in-progress: true
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Worker dependencies
+        working-directory: sim-distribution-manager/worker
+        run: npm install
+
+      - name: Type-check Worker
+        working-directory: sim-distribution-manager/worker
+        run: npm run check
+
+      - name: Deploy SIM Manager sandbox Worker only
+        uses: cloudflare/wrangler-action@v3
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: sim-distribution-manager/worker
+          command: deploy --config wrangler.jsonc
