@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: sigscale-ocs-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   start-and-check-ocs:
     runs-on: ubuntu-latest
