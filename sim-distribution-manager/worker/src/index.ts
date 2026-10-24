@@ -17,7 +17,7 @@ function str(v: unknown,n=200): string | null {if(typeof v!=="string")return nul
 const networks=["MTN","Vodacom","Cell C","Telkom"];
 export default {async fetch(req: Request,env: Env): Promise<Response>{const u=new URL(req.url);if(req.method==="GET"&&u.pathname==="/")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
 if(req.method==="GET"&&u.pathname==="/api/health")return json({ok:true,service:"eyaelo-sim-manager",mode:"provider-sandbox"});
-if(!u.pathname.startsWith("/api/"))return json({error:"not_found"},404);
+if(!u.pathname.startsWith("/api/")&&!u.pathname.startsWith("/tmf-api/"))return json({error:"not_found"},404);
 if(!await authorized(req,env))return json({error:"unauthorised"},401);
 try{
 if(u.pathname==="/api/provider/status"&&req.method==="GET"){const configured=Boolean(env.RELOADLY_TEST_CLIENT_ID&&env.RELOADLY_TEST_CLIENT_SECRET);return json({mode:"sandbox",provider:"Reloadly",configured,liveEnabled:false,message:configured?"Sandbox credentials configured. Sandbox transactions do not credit real SIMs.":"Sandbox credentials not configured. Add RELOADLY_TEST_CLIENT_ID and RELOADLY_TEST_CLIENT_SECRET as Worker secrets."});}
@@ -42,6 +42,36 @@ env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_
 ]);
 const balance=await env.DB.prepare("SELECT balance_cents FROM simulated_subscriber_balances WHERE phone_number=? AND network=?").bind(phone,network).first<{balance_cents:number}>();
 return json({transaction_id:id,phone_number:phone,network,amount_cents:amount,balance_cents:Number(balance?.balance_cents||0),status:"simulated",simulation_only:true,real_carrier_credit:false,message:"Internal Eyaelo test balance updated only. No airtime or data was sent to the real phone."},201);
+}
+if(u.pathname==="/tmf-api/prepayBalanceManagement/v4/balanceAdjustment"&&req.method==="POST"){
+const b=await body(req);if(!b)return json({error:"invalid_json"},400);
+const product=b.product&&typeof b.product==="object"?b.product as Record<string,unknown>:null;
+const amountObj=b.amount&&typeof b.amount==="object"?b.amount as Record<string,unknown>:null;
+const phone=product?str(product.id,20):null,network=str(b.network,20),amount=Number(amountObj?.amount),units=str(amountObj?.units,20),key=str(b.externalId,100);
+if(!phone||!/^[+]?[0-9]{8,15}$/.test(phone)||!network||!networks.includes(network)||!Number.isSafeInteger(amount)||amount<100||amount>100000||units!=="cents"||!key)return json({error:"invalid_balance_adjustment",message:"Expected product.id phone, supported network, amount.units='cents', integer amount from 100 to 100000, and unique externalId."},400);
+await env.DB.prepare("CREATE TABLE IF NOT EXISTS charging_balance_adjustments (id TEXT PRIMARY KEY, phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), amount_cents INTEGER NOT NULL CHECK (amount_cents>0), external_id TEXT NOT NULL UNIQUE, status TEXT NOT NULL CHECK (status='simulated'), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+await env.DB.prepare("CREATE TABLE IF NOT EXISTS simulated_subscriber_balances (phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents>=0), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(phone_number,network))").run();
+await env.DB.prepare("CREATE TABLE IF NOT EXISTS simulated_recharge_ledger (id TEXT PRIMARY KEY, phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), amount_cents INTEGER NOT NULL CHECK (amount_cents>0), idempotency_key TEXT NOT NULL UNIQUE, status TEXT NOT NULL CHECK (status='simulated'), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+const id=crypto.randomUUID();
+try{
+await env.DB.batch([
+env.DB.prepare("INSERT INTO charging_balance_adjustments (id,phone_number,network,amount_cents,external_id,status) VALUES (?,?,?,?,?,'simulated')").bind(id,phone,network,amount,key),
+env.DB.prepare("INSERT OR IGNORE INTO simulated_subscriber_balances (phone_number,network,balance_cents) VALUES (?,?,0)").bind(phone,network),
+env.DB.prepare("UPDATE simulated_subscriber_balances SET balance_cents=balance_cents+?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE phone_number=? AND network=?").bind(amount,phone,network),
+env.DB.prepare("INSERT INTO simulated_recharge_ledger (id,phone_number,network,amount_cents,idempotency_key,status) VALUES (?,?,?,?,?,'simulated')").bind(id,phone,network,amount,"tmf654:"+key),
+env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome,details_json) VALUES (?,'admin-token','charging.tmf654.adjustment','charging_balance_adjustment',?,'success',?)").bind(crypto.randomUUID(),id,JSON.stringify({phone_number:phone,network,amount_cents:amount,standard:"TMF654-shaped-subset",simulation_only:true,real_carrier_credit:false}))
+]);
+}catch(e){if(e instanceof Error&&/UNIQUE constraint failed/.test(e.message))return json({error:"duplicate_external_id",message:"This externalId has already been used. No additional balance was added."},409);throw e;}
+const balance=await env.DB.prepare("SELECT balance_cents FROM simulated_subscriber_balances WHERE phone_number=? AND network=?").bind(phone,network).first<{balance_cents:number}>();
+const balanceCents=Number(balance?.balance_cents||0);
+return json({id,href:"/tmf-api/prepayBalanceManagement/v4/balanceAdjustment/"+id,externalId:key,description:str(b.description,200)||"Eyaelo internal test adjustment",creationDate:new Date().toISOString(),status:"completed",amount:{units:"cents",amount},product:{id:phone},network,balance:{units:"cents",amount:balanceCents},"@type":"AdjustBalance",simulationOnly:true,realCarrierCredit:false,message:"TMF654-style subset test only; internal Eyaelo balance changed, no carrier airtime was sent."},201);
+}
+if(u.pathname==="/tmf-api/prepayBalanceManagement/v4/bucket"&&req.method==="GET"){
+const phone=str(u.searchParams.get("product.id"),20),network=str(u.searchParams.get("network"),20);
+if(!phone||!/^[+]?[0-9]{8,15}$/.test(phone)||!network||!networks.includes(network))return json({error:"product.id_phone_and_network_required"},400);
+await env.DB.prepare("CREATE TABLE IF NOT EXISTS simulated_subscriber_balances (phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents>=0), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(phone_number,network))").run();
+const balance=await env.DB.prepare("SELECT balance_cents,updated_at FROM simulated_subscriber_balances WHERE phone_number=? AND network=?").bind(phone,network).first<{balance_cents:number;updated_at:string}>();
+return json({data:[{id:phone+":"+network,name:"Eyaelo simulated prepaid balance",usageType:"monetary",remainingValue:{units:"cents",amount:Number(balance?.balance_cents||0)},product:{id:phone},network,status:"active",lastUpdate:balance?.updated_at||null,"@type":"Bucket",simulationOnly:true,realCarrierCredit:false}]});
 }
 if(u.pathname==="/api/recharges/submit"&&req.method==="POST"){
 const b=await body(req);if(!b)return json({error:"invalid_json"},400);
