@@ -18,8 +18,9 @@
 
 ## Before deployment
 1. Review code and install dependencies.
-2. Run npm run check.
-3. Add integration tests against disposable D1 for unknown, altered, expired, revoked, duplicate, and concurrent redemption.
-4. Configure a dedicated D1 database and a strong random Worker secret; do not reuse SIM Manager credentials.
-5. Keep VOUCHER_LAB_ENABLED=false until checks pass.
-6. Confirm official carrier recharge separately. Never treat generated lab tokens as operator-issued vouchers.
+2. Run `npm run check` and `npm test`.
+3. Current automated tests cover token format, token normalization/rejection, deterministic hashing, repeated-sample uniqueness, and bearer-token authentication. They are not end-to-end database tests.
+4. Add integration tests against disposable D1 for issuance, unknown/altered/expired/revoked tokens, duplicate redemption, and concurrent redemption.
+5. Configure a dedicated D1 database and a strong random Worker secret; do not reuse SIM Manager credentials.
+6. Keep `VOUCHER_LAB_ENABLED=false` until checks and review pass.
+7. Confirm official carrier recharge separately. Never treat generated lab tokens as operator-issued vouchers.
