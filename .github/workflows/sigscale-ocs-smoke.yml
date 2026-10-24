@@ -1,0 +1,61 @@
+name: SigScale OCS container smoke test
+
+on:
+  push:
+    branches:
+      - feature/eyaelo-sigscale-ocs-lab
+      - feature/eyaelo-ocs-bridge-step1-4
+    paths:
+      - "sim-distribution-manager/ocs-lab/**"
+      - ".github/workflows/sigscale-ocs-smoke.yml"
+  pull_request:
+    branches:
+      - feature/sim-manager-provider-adapter
+    paths:
+      - "sim-distribution-manager/ocs-lab/**"
+      - ".github/workflows/sigscale-ocs-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  start-and-check-ocs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pull upstream SigScale OCS image
+        run: docker pull sigscale/ocs:3.4.75-1
+      - name: Initialize OCS database
+        run: |
+          set -euo pipefail
+          docker volume create eyaelo-ocs-smoke-db
+          docker run --rm --entrypoint bash -h ocsnode.example.com \
+            -v eyaelo-ocs-smoke-db:/home/otp/db \
+            sigscale/ocs:3.4.75-1 -lc 'bin/initialize'
+      - name: Start OCS container
+        run: |
+          set -euo pipefail
+          docker run -d --name eyaelo-sigscale-ocs-smoke \
+            -h ocsnode.example.com \
+            -v eyaelo-ocs-smoke-db:/home/otp/db \
+            -p 127.0.0.1:18080:8080/tcp \
+            sigscale/ocs:3.4.75-1
+      - name: Wait for OCS health endpoint
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:18080/health; then
+              echo
+              echo "SigScale OCS health endpoint responded successfully."
+              exit 0
+            fi
+            sleep 5
+          done
+          docker logs eyaelo-sigscale-ocs-smoke
+          exit 1
+      - name: Cleanup
+        if: always()
+        run: |
+          docker logs eyaelo-sigscale-ocs-smoke || true
+          docker rm -f eyaelo-sigscale-ocs-smoke || true
+          docker volume rm eyaelo-ocs-smoke-db || true
