@@ -9,6 +9,9 @@ interface Env {
   RELOADLY_LIVE_CLIENT_ID?: string;
   RELOADLY_LIVE_CLIENT_SECRET?: string;
   ENABLE_LIVE_AIRTIME_RECHARGES?: string;
+  SIGSCALE_OCS_BASE_URL?: string;
+  SIGSCALE_OCS_USERNAME?: string;
+  SIGSCALE_OCS_PASSWORD?: string;
 }
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 function json(data: unknown,status=200){return new Response(JSON.stringify(data),{status,headers:JSON_HEADERS});}
@@ -16,11 +19,57 @@ async function authorized(req: Request,env: Env){const h=req.headers.get("Author
 async function body(req: Request): Promise<Record<string, unknown> | null>{try{const x=await req.json();return x&&typeof x==="object"&&!Array.isArray(x)?x as Record<string, unknown>:null}catch{return null}}
 function str(v: unknown,n=200): string | null {if(typeof v!=="string")return null;const value=v.trim();return value.length>0&&value.length<=n?value:null}
 const networks=["MTN","Vodacom","Cell C","Telkom"];
+function sigscaleConfigured(env: Env){return Boolean(env.SIGSCALE_OCS_BASE_URL&&env.SIGSCALE_OCS_USERNAME&&env.SIGSCALE_OCS_PASSWORD);}
+function sigscaleUrl(env: Env,path: string){const base=str(env.SIGSCALE_OCS_BASE_URL,500);if(!base)throw new Error("SigScale OCS base URL is not configured");const url=new URL(base);if(url.protocol!=="https:"&&url.hostname!=="localhost"&&url.hostname!=="127.0.0.1")throw new Error("SigScale OCS must use HTTPS");url.pathname=url.pathname.replace(/\\/$/,"")+path;return url.toString();}
+async function sigscaleFetch(env: Env,path: string,init: RequestInit={}){if(!sigscaleConfigured(env))throw new Error("SigScale OCS credentials are not configured");const auth=btoa(String(env.SIGSCALE_OCS_USERNAME)+":"+String(env.SIGSCALE_OCS_PASSWORD));return fetch(sigscaleUrl(env,path),{...init,headers:{"authorization":"Basic "+auth,"accept":"application/json","content-type":"application/json",...(init.headers||{})},signal:AbortSignal.timeout(15000)});}
 export default {async fetch(req: Request,env: Env): Promise<Response>{const u=new URL(req.url);if(req.method==="GET"&&u.pathname==="/")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
 if(req.method==="GET"&&u.pathname==="/api/health")return json({ok:true,service:"eyaelo-sim-manager",mode:"provider-sandbox"});
 if(!u.pathname.startsWith("/api/")&&!u.pathname.startsWith("/tmf-api/"))return json({error:"not_found"},404);
 if(!await authorized(req,env))return json({error:"unauthorised"},401);
 try{
+if(u.pathname==="/api/ocs/status"&&req.method==="GET"){
+ const configured=sigscaleConfigured(env);
+ if(!configured)return json({configured:false,reachable:false,service:"SigScale OCS",message:"Configure SIGSCALE_OCS_BASE_URL, SIGSCALE_OCS_USERNAME and SIGSCALE_OCS_PASSWORD as Worker variables/secrets. No OCS request was sent."});
+ try{const r=await sigscaleFetch(env,"/health",{method:"GET"});const raw=await r.text();let health:unknown=raw;try{health=JSON.parse(raw)}catch{}return json({configured:true,reachable:r.ok,http_status:r.status,service:"SigScale OCS",health:r.ok?health:undefined,message:r.ok?"SigScale OCS health endpoint responded. This confirms OCS reachability only, not carrier airtime delivery.":"SigScale OCS health check returned a non-success response."},r.ok?200:502)}catch(e){return json({configured:true,reachable:false,service:"SigScale OCS",message:e instanceof Error?e.message:"OCS health request failed"},502)}
+}
+if(u.pathname==="/api/ocs/link-subscriber"&&req.method==="POST"){
+ const b=await body(req);if(!b)return json({error:"invalid_json"},400);
+ const simId=str(b.sim_card_id,36),productId=str(b.product_id,120);
+ if(!simId||!productId)return json({error:"sim_card_id_and_sigscale_product_id_required",message:"Link an active Eyaelo SIM to the product.id of its provisioned subscriber/product in SigScale OCS."},400);
+ const sim=await env.DB.prepare("SELECT id,phone_number,network,status FROM sim_cards WHERE id=?").bind(simId).first<{id:string;phone_number:string;network:string;status:string}>();
+ if(!sim)return json({error:"sim_not_found"},404);if(sim.status!=="active")return json({error:"sim_not_active"},409);
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS ocs_subscriber_map (sim_card_id TEXT PRIMARY KEY, phone_number TEXT NOT NULL, network TEXT NOT NULL, sigscale_product_id TEXT NOT NULL UNIQUE, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+ await env.DB.prepare("INSERT INTO ocs_subscriber_map (sim_card_id,phone_number,network,sigscale_product_id) VALUES (?,?,?,?) ON CONFLICT(sim_card_id) DO UPDATE SET phone_number=excluded.phone_number,network=excluded.network,sigscale_product_id=excluded.sigscale_product_id,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')").bind(sim.id,sim.phone_number,sim.network,productId).run();
+ await env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome,details_json) VALUES (?,'admin-token','ocs.subscriber_linked','sim_card',?,'success',?)").bind(crypto.randomUUID(),sim.id,JSON.stringify({network:sim.network,sigscale_product_id:productId})).run();
+ return json({linked:true,sim_card_id:sim.id,phone_number:sim.phone_number,network:sim.network,sigscale_product_id:productId,message:"Eyaelo SIM is mapped to a SigScale OCS product. This mapping does not itself change any balance."},201);
+}
+if(u.pathname==="/api/ocs/recharge"&&req.method==="POST"){
+ const b=await body(req);if(!b)return json({error:"invalid_json"},400);
+ const simId=str(b.sim_card_id,36),amount=Number(b.amount_cents),key=str(b.idempotency_key,100);
+ if(!simId||!Number.isSafeInteger(amount)||amount<100||amount>2000||!key)return json({error:"invalid_ocs_test_request",message:"For the first OCS integration test use R1-R20 and a unique idempotency key."},400);
+ if(!sigscaleConfigured(env))return json({error:"sigscale_ocs_not_configured",message:"SigScale OCS URL and credentials are not configured."},503);
+ const sim=await env.DB.prepare("SELECT id,phone_number,network,status FROM sim_cards WHERE id=?").bind(simId).first<{id:string;phone_number:string;network:string;status:string}>();
+ if(!sim)return json({error:"sim_not_found"},404);if(sim.status!=="active")return json({error:"sim_not_active"},409);
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS ocs_subscriber_map (sim_card_id TEXT PRIMARY KEY, phone_number TEXT NOT NULL, network TEXT NOT NULL, sigscale_product_id TEXT NOT NULL UNIQUE, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS ocs_recharge_transactions (id TEXT PRIMARY KEY, sim_card_id TEXT NOT NULL, phone_number TEXT NOT NULL, network TEXT NOT NULL, sigscale_product_id TEXT NOT NULL, amount_cents INTEGER NOT NULL, idempotency_key TEXT NOT NULL UNIQUE, status TEXT NOT NULL, provider_response_code TEXT, provider_response_json TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), completed_at TEXT)").run();
+ const map=await env.DB.prepare("SELECT sigscale_product_id FROM ocs_subscriber_map WHERE sim_card_id=?").bind(sim.id).first<{sigscale_product_id:string}>();
+ if(!map)return json({error:"ocs_subscriber_not_linked",message:"Link this Eyaelo SIM to its existing SigScale product.id before testing."},409);
+ const id=crypto.randomUUID();
+ try{await env.DB.prepare("INSERT INTO ocs_recharge_transactions (id,sim_card_id,phone_number,network,sigscale_product_id,amount_cents,idempotency_key,status) VALUES (?,?,?,?,?,?,?,'queued')").bind(id,sim.id,sim.phone_number,sim.network,map.sigscale_product_id,amount,key).run()}catch(e){if(e instanceof Error&&/UNIQUE constraint failed/.test(e.message))return json({error:"duplicate_ocs_request",message:"This idempotency key has already been used. Do not submit a new request until you have checked the existing OCS result."},409);throw e}
+ try{
+  const r=await sigscaleFetch(env,"/balanceManagement/v1/balanceAdjustment",{method:"POST",body:JSON.stringify({amount:{units:"cents",amount},product:{id:map.sigscale_product_id}})});
+  const raw=await r.text();let result:Record<string,unknown>={};try{const parsed=JSON.parse(raw);if(parsed&&typeof parsed==="object")result=parsed as Record<string,unknown>}catch{}
+  const outcome=r.ok?"ocs_adjusted":r.status>=400&&r.status<500?"failed":"unknown";
+  await env.DB.prepare("UPDATE ocs_recharge_transactions SET status=?,provider_response_code=?,provider_response_json=?,completed_at=CASE WHEN ? IN ('ocs_adjusted','failed') THEN strftime('%Y-%m-%dT%H:%M:%fZ','now') ELSE NULL END WHERE id=?").bind(outcome,String(r.status),raw.slice(0,4000),outcome,id).run();
+  await env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome,details_json) VALUES (?,'admin-token','ocs.recharge_submitted','ocs_recharge_transaction',?,?,?)").bind(crypto.randomUUID(),id,r.ok?"success":"failure",JSON.stringify({provider:"SigScale OCS",http_status:r.status,amount_cents:amount,real_carrier_credit:false})).run();
+  return json({id,status:outcome,provider:"SigScale OCS",http_status:r.status,sigscale_product_id:map.sigscale_product_id,amount_cents:amount,simulation_only:false,real_carrier_credit:false,result:r.ok?result:undefined,message:r.ok?"SigScale OCS accepted the balance adjustment. This changes the SigScale OCS product balance only; it does NOT top up the mobile operator's real airtime.":outcome==="unknown"?"OCS response was uncertain. Check the OCS product balance and transaction before retrying.":"SigScale OCS rejected the adjustment. Review the OCS response and do not assume any carrier airtime was credited."},r.ok?201:r.status>=400&&r.status<500?r.status:502);
+ }catch(e){
+  const message=e instanceof Error?e.message:"SigScale OCS request failed";
+  await env.DB.prepare("UPDATE ocs_recharge_transactions SET status='unknown',provider_response_code='network_error',provider_response_json=? WHERE id=?").bind(message.slice(0,1000),id).run();
+  await env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome,details_json) VALUES (?,'admin-token','ocs.recharge_unknown','ocs_recharge_transaction','unknown',?)").bind(crypto.randomUUID(),JSON.stringify({provider:"SigScale OCS",error:message.slice(0,240),real_carrier_credit:false})).run();
+  return json({id,status:"unknown",error:"ocs_result_unknown",message:"The OCS request may have reached SigScale. Check the product balance before retrying. No claim of mobile-network airtime delivery is made."},502);
+ }
+}
 if(u.pathname==="/api/provider/status"&&req.method==="GET"){const configured=Boolean(env.RELOADLY_TEST_CLIENT_ID&&env.RELOADLY_TEST_CLIENT_SECRET);const liveConfigured=Boolean(env.RELOADLY_LIVE_CLIENT_ID&&env.RELOADLY_LIVE_CLIENT_SECRET);const liveEnabled=env.ENABLE_LIVE_AIRTIME_RECHARGES==="true"&&liveConfigured;return json({mode:"sandbox",provider:"Reloadly",configured,liveConfigured,liveEnabled,message:liveEnabled?"LIVE recharge gate is enabled. Every live top-up spends real wallet funds.":"Live recharge is locked. Configure LIVE credentials and explicitly enable ENABLE_LIVE_AIRTIME_RECHARGES only when ready."});}
 if(u.pathname==="/api/provider/operators"&&req.method==="GET"){const mode=u.searchParams.get("mode")==="live"?"live":"sandbox";if(mode==="live"&&(!env.RELOADLY_LIVE_CLIENT_ID||!env.RELOADLY_LIVE_CLIENT_SECRET))return json({error:"live_provider_not_configured",message:"Add Reloadly LIVE client ID and secret as Worker secrets."},503);try{const data=await listSouthAfricanOperators({...env,AIRTIME_PROVIDER_MODE:mode});return json({mode,live:mode==="live",data});}catch(e){if(e instanceof AirtimeProviderError)return json({error:e.message,code:e.providerCode||"provider_error"},e.status);throw e;}}
 if(u.pathname==="/api/sims"&&req.method==="GET"){const limit=Math.min(100,Math.max(1,Number(u.searchParams.get("limit"))||100));const r=await env.DB.prepare("SELECT * FROM sim_cards ORDER BY created_at DESC LIMIT ?").bind(limit).all();return json({data:r.results});}
