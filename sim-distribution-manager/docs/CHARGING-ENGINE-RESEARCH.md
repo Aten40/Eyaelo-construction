@@ -107,3 +107,14 @@ Do not infer a private endpoint, token, secret key or permission from a public s
 ## Current conclusion
 
 We can build and own the platform's transaction, ledger, charging and adapter software. SigScale OCS is the first test candidate due to its documented functionality and Apache-2.0 licence. Public specifications confirm the general OCS/external-recharge-server architecture, but available research has not established a universal public recharge endpoint for South African operators. The next technical milestone is a simulated end-to-end recharge using TMF654, followed by operator-specific interface research.
+
+
+## Eyaelo implementation step — TMF654-shaped internal charging API
+
+Eyaelo's SIM Manager now includes an authenticated, deliberately limited API subset for internal balance adjustment and bucket lookup. Routes:
+- `POST /tmf-api/prepayBalanceManagement/v4/balanceAdjustment`
+- `GET /tmf-api/prepayBalanceManagement/v4/bucket?product.id=PHONE&network=NETWORK`
+
+This is intended to exercise the request/response contract and transaction discipline before building a network adapter. It is not full TMF654 conformance, and it is not connected to SigScale OCS or any carrier. The API mutates only Eyaelo's simulated D1 balance ledger. Responses explicitly report simulation-only status and no real carrier credit. See `SIMULATED-RECHARGE-TEST.md` for payloads and manual test steps.
+
+The next technical gate is deployment and manual dashboard/API validation, then a separate development instance of an actual OCS such as SigScale for broader standards compatibility testing. Do not point this prototype at live subscriber balances.
