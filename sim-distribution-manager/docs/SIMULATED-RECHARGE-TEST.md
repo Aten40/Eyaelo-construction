@@ -97,3 +97,18 @@ The response contains a TMF654-shaped bucket representation and explicitly marks
 ### Boundary
 
 The API is a development implementation of a small TMF654-shaped subset, not the complete standard and not a public operator endpoint. The TM Forum standard defines prepaid balance operations, but a compatible request only adjusts the balance system receiving that request. It cannot change MTN, Vodacom, Cell C or Telkom balances unless a separately implemented and configured integration reaches the operator's actual charging/recharge system. Live recharge remains disabled.
+
+
+## Next-stage validation record
+
+The user confirmed that the TMF654-style dashboard test is working. This is a user-observed successful test of Eyaelo's internal simulated balance adjustment. It does not verify a real carrier recharge or, by itself, independently prove every API edge case.
+
+Recommended next tests before moving toward an operator integration:
+1. Add R10 to a fresh test phone/network identifier; verify the returned balance is R10.
+2. Add R5 again using a new external reference; verify the balance is R15.
+3. Send the same external reference twice via an authenticated API client; expect the second request to return HTTP 409 without increasing the balance.
+4. Read the bucket endpoint and verify it matches the dashboard balance.
+5. Confirm unauthenticated requests are rejected.
+6. Keep all test numbers authorized for testing; never treat simulated credit as airtime.
+
+After these tests, compare the contract against the official TMF654 OpenAPI specification and evaluate a separate development OCS (such as SigScale) for broader interoperability. Do not deploy an OCS inside the Cloudflare Worker or enable live recharge without a verified operator interface.
