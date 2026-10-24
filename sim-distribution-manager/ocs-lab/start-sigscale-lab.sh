@@ -34,7 +34,7 @@ docker run -d --name "$CONTAINER" -h "$OCS_NODE_HOSTNAME" \
   -p 127.0.0.1:1813:1813/udp \
   -p 127.0.0.1:3868:3868/tcp \
   --entrypoint bash "$IMAGE" -lc \
-  'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && exec bin/start' >/dev/null
+  'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && for f in /home/otp/releases/*/sys.config; do sed -i "/acct_log_rotate/d" "$f"; done && exec bin/start' >/dev/null
 
 echo
 echo "Eyaelo SigScale OCS lab container started: $CONTAINER"
