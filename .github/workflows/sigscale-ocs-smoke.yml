@@ -44,7 +44,7 @@ jobs:
             -v eyaelo-ocs-smoke-db:/home/otp/db \
             -p 127.0.0.1:18080:8080/tcp \
             --entrypoint bash sigscale/ocs:3.4.74-1 -lc \
-            'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && exec bin/start'
+            'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && for f in /home/otp/releases/*/sys.config; do sed -i "/acct_log_rotate/d" "$f"; done && exec bin/start'
       - name: Wait for OCS health endpoint
         run: |
           set -euo pipefail
