@@ -28,7 +28,7 @@ jobs:
           docker volume create eyaelo-ocs-smoke-db
           docker run --rm \
             --entrypoint bash \
-            -h ocsnode \
+            -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
             sigscale/ocs:3.4.75-1 \
             -lc "bin/initialize"
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name eyaelo-sigscale-ocs-smoke \
-            -h ocsnode \
+            -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
             -p 127.0.0.1:18080:8080/tcp \
             sigscale/ocs:3.4.75-1
