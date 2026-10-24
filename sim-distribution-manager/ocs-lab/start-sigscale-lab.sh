@@ -4,7 +4,7 @@ set -euo pipefail
 # Eyaelo OCS lab bootstrap for the upstream SigScale OCS Docker image.
 # All host ports are bound to 127.0.0.1; this is a development lab, not production.
 
-IMAGE="${SIGSCALE_OCS_IMAGE:-sigscale/ocs:3.4.75-1}"
+IMAGE="${SIGSCALE_OCS_IMAGE:-sigscale/ocs:3.4.74-1}"
 CONTAINER="${EYAELO_OCS_CONTAINER:-eyaelo-sigscale-ocs}"
 VOLUME="${EYAELO_OCS_VOLUME:-eyaelo-ocs-db}"
 OCS_NODE_HOSTNAME="${EYAELO_OCS_NODE_HOSTNAME:-ocsnode.example.com}"
