@@ -12,8 +12,8 @@ interface Env {
 const JSON_HEADERS={"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 function json(data: unknown,status=200){return new Response(JSON.stringify(data),{status,headers:JSON_HEADERS});}
 async function authorized(req: Request,env: Env){const h=req.headers.get("Authorization")||"",t=h.startsWith("Bearer ")?h.slice(7):"";if(!t||!env.ADMIN_API_TOKEN)return false;const a=new TextEncoder().encode(t),b=new TextEncoder().encode(env.ADMIN_API_TOKEN);if(a.length!==b.length)return false;const x=new Uint8Array(await crypto.subtle.digest("SHA-256",a)),y=new Uint8Array(await crypto.subtle.digest("SHA-256",b));let d=0;for(let i=0;i<x.length;i++)d|=x[i]^y[i];return d===0;}
-async function body(req: Request): Promise<Record<string, unknown> | null>{try{const x=await req.json();return x&&typeof x==="object"&&!Array.isArray(x)?x:null}catch{return null}}
-function str(v: unknown,n=200){if(typeof v!=="string")return null;v=v.trim();return v&&v.length<=n?v:null}
+async function body(req: Request): Promise<Record<string, unknown> | null>{try{const x=await req.json();return x&&typeof x==="object"&&!Array.isArray(x)?x as Record<string, unknown>:null}catch{return null}}
+function str(v: unknown,n=200): string | null {if(typeof v!=="string")return null;const value=v.trim();return value.length>0&&value.length<=n?value:null}
 const networks=["MTN","Vodacom","Cell C","Telkom"];
 export default {async fetch(req: Request,env: Env): Promise<Response>{const u=new URL(req.url);if(req.method==="GET"&&u.pathname==="/")return new Response(HTML,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff","referrer-policy":"no-referrer","content-security-policy":"default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"}});
 if(req.method==="GET"&&u.pathname==="/api/health")return json({ok:true,service:"eyaelo-sim-manager",mode:"provider-sandbox"});
@@ -40,7 +40,7 @@ env.DB.prepare("INSERT INTO simulated_recharge_ledger (id,phone_number,network,a
 env.DB.prepare("UPDATE simulated_subscriber_balances SET balance_cents=balance_cents+?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE phone_number=? AND network=?").bind(amount,phone,network),
 env.DB.prepare("INSERT INTO audit_events (id,actor_id,action,entity_type,entity_id,outcome,details_json) VALUES (?,'admin-token','simulator.recharge','simulated_recharge',?,'success',?)").bind(crypto.randomUUID(),id,JSON.stringify({phone_number:phone,network,amount_cents:amount,simulation_only:true,real_carrier_credit:false}))
 ]);
-const balance=await env.DB.prepare("SELECT balance_cents FROM simulated_subscriber_balances WHERE phone_number=? AND network=?").bind(phone,network).first();
+const balance=await env.DB.prepare("SELECT balance_cents FROM simulated_subscriber_balances WHERE phone_number=? AND network=?").bind(phone,network).first<{balance_cents:number}>();
 return json({transaction_id:id,phone_number:phone,network,amount_cents:amount,balance_cents:Number(balance?.balance_cents||0),status:"simulated",simulation_only:true,real_carrier_credit:false,message:"Internal Eyaelo test balance updated only. No airtime or data was sent to the real phone."},201);
 }
 if(u.pathname==="/api/recharges/submit"&&req.method==="POST"){
@@ -48,7 +48,7 @@ const b=await body(req);if(!b)return json({error:"invalid_json"},400);
 if(providerMode(env)!=="sandbox")return json({error:"live_recharges_disabled",message:"Live recharge is deliberately disabled until separately reviewed and explicitly enabled."},403);
 const simId=str(b.sim_card_id,36),amount=Number(b.amount_cents),operatorId=Number(b.operator_id),key=str(b.idempotency_key,100);
 if(!simId||!Number.isSafeInteger(amount)||amount<100||amount>100000||!Number.isSafeInteger(operatorId)||operatorId<=0||!key)return json({error:"invalid_recharge_request"},400);
-const sim=await env.DB.prepare("SELECT id,phone_number,network,status FROM sim_cards WHERE id=?").bind(simId).first();
+const sim=await env.DB.prepare("SELECT id,phone_number,network,status FROM sim_cards WHERE id=?").bind(simId).first<{id:string;phone_number:string;network:string;status:string}>();
 if(!sim)return json({error:"sim_not_found"},404);if(sim.status!=="active")return json({error:"sim_not_active"},409);
 const operators=await listSouthAfricanOperators({...env,AIRTIME_PROVIDER_MODE:"sandbox"});
 const operator=operators.find(o=>Number(o.operatorId??o.id)===operatorId);
