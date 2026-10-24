@@ -1,0 +1,15 @@
+name = "eyaelo-internal-voucher-lab"
+main = "src/index.ts"
+compatibility_date = "2026-10-24"
+
+# Intentionally not deployable until reviewed and configured.
+# Create a dedicated D1 database and replace this placeholder ID.
+# Set ADMIN_API_TOKEN as a Worker secret. Keep lab disabled until tests pass.
+[vars]
+VOUCHER_LAB_ENABLED = "false"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "eyaelo-voucher-lab"
+database_id = "REPLACE_WITH_DEDICATED_D1_DATABASE_ID"
+migrations_dir = "migrations"
