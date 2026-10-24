@@ -28,7 +28,7 @@ if(u.pathname==="/api/sims"&&req.method==="POST"){const b=await body(req);if(!b)
 if(u.pathname==="/api/simulator/recharge"&&req.method==="POST"){
 const b=await body(req);if(!b)return json({error:"invalid_json"},400);
 const phone=str(b.phone_number,20),network=str(b.network,20),amount=Number(b.amount_cents),key=str(b.idempotency_key,100);
-if(!phone||!/^[+]?[0-9]{8,15}$/.test(phone)||!networks.includes(network)||!Number.isSafeInteger(amount)||amount<100||amount>100000||!key)return json({error:"invalid_simulation_request"},400);
+if(!phone||!/^[+]?[0-9]{8,15}$/.test(phone)||!network||!networks.includes(network)||!Number.isSafeInteger(amount)||amount<100||amount>100000||!key)return json({error:"invalid_simulation_request"},400);
 await env.DB.prepare("CREATE TABLE IF NOT EXISTS simulated_subscriber_balances (phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents>=0), updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY(phone_number,network))").run();
 await env.DB.prepare("CREATE TABLE IF NOT EXISTS simulated_recharge_ledger (id TEXT PRIMARY KEY, phone_number TEXT NOT NULL, network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')), amount_cents INTEGER NOT NULL CHECK (amount_cents>0), idempotency_key TEXT NOT NULL UNIQUE, status TEXT NOT NULL CHECK (status='simulated'), created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))").run();
 const existing=await env.DB.prepare("SELECT id,phone_number,network,amount_cents FROM simulated_recharge_ledger WHERE idempotency_key=?").bind(key).first();
