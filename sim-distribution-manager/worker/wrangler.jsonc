@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "eyaelo-sim-manager-api",
+  "name": "eyaelo-sim-manager",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-23",
   "observability": {
@@ -8,7 +8,7 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "APP_ORIGIN": "https://REPLACE-WITH-SIM-MANAGER-APP-DOMAIN"
+    "APP_ORIGIN": "https://eyaelo-sim-manager.martinelolu30.workers.dev"
   },
   "d1_databases": [
     {
