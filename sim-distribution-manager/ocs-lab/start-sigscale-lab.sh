@@ -5,8 +5,8 @@ set -euo pipefail
 # All host ports are bound to 127.0.0.1; this is a development lab, not production.
 
 IMAGE="${SIGSCALE_OCS_IMAGE:-sigscale/ocs}"
-CONTAINER="${EYAelo_OCS_CONTAINER:-eyaelo-sigscale-ocs}"
-VOLUME="${EYAelo_OCS_VOLUME:-eyaelo-ocs-db}"
+CONTAINER="${EYAELO_OCS_CONTAINER:-eyaelo-sigscale-ocs}"
+VOLUME="${EYAELO_OCS_VOLUME:-eyaelo-ocs-db}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required. Install Docker Engine/Desktop, then rerun this script." >&2
