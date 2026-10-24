@@ -22,16 +22,13 @@ jobs:
       - name: Pull upstream SigScale OCS image
         run: docker pull sigscale/ocs:3.4.75-1
 
-      - name: Initialize persistent database volume
+      - name: Diagnose container hostname and initialize database
         run: |
           set -euo pipefail
           docker volume create eyaelo-ocs-smoke-db
-          docker run --rm \
-            --entrypoint bash \
-            -h ocsnode.example.com \
+          docker run --rm --entrypoint bash -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
-            sigscale/ocs:3.4.75-1 \
-            -lc "bin/initialize"
+            sigscale/ocs:3.4.75-1 -lc 'echo "hostname=$(hostname)"; echo "fqdn=$(hostname -f)"; cat /etc/hosts; getent hosts "$(hostname -f)" || true; bin/initialize'
 
       - name: Start OCS container
         run: |
