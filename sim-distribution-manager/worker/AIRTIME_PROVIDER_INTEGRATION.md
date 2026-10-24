@@ -1,30 +1,33 @@
-# Airtime provider adapter — integration notes
+# Airtime provider integration — SIM Manager
 
-This folder is the separate Eyaelo SIM Distribution Manager. Do not merge it into the construction website's default branch or change the construction Worker.
+This is the separate Eyaelo SIM Distribution Manager. Its Worker is deployed at https://eyaelo-sim-manager.martinelolu30.workers.dev/. Do not merge this into the construction website's default branch or change the construction Worker.
 
-## Current stage
-- The Reloadly adapter module is prepared for integration with the recharge API.
-- It supports sandbox/live endpoint selection, token exchange, South African operator discovery, top-up submission, and status lookup.
-- The module is not yet wired into the dashboard/API, and no airtime transaction has been sent.
-- Sandbox responses are simulations. They do not credit a physical SIM or prove a real subscriber balance.
+## Current deployed state
+- The dashboard and server-side API are connected to the Reloadly Airtime API adapter.
+- The Worker supports sandbox operator discovery, simulated top-up submission, and sandbox transaction-status checks.
+- The existing SIM register, D1 database, and ADMIN_API_TOKEN binding were preserved during deployment.
+- The adapter defaults to sandbox mode. Live recharge is explicitly disabled in the API.
+- Reloadly sandbox credentials have not been configured yet, so provider calls will report that the provider is not configured until the secrets are added.
+- Sandbox results are simulations and do not credit a physical SIM or prove a subscriber balance.
 
-## Credentials
-Use Cloudflare Worker secrets, never source code, browser storage, GitHub, or plain `vars`:
+## Add sandbox credentials
+In the Reloadly developer dashboard, select the **Test/Sandbox** environment and find the Airtime API client ID and client secret. In Cloudflare, open the Worker **eyaelo-sim-manager** → Settings → Variables and Secrets, then add these as **secrets** (not plain text variables):
 - `RELOADLY_TEST_CLIENT_ID`
 - `RELOADLY_TEST_CLIENT_SECRET`
-- `RELOADLY_LIVE_CLIENT_ID`
-- `RELOADLY_LIVE_CLIENT_SECRET`
 
-Set `AIRTIME_PROVIDER_MODE` to `sandbox` for testing. Live mode must only be enabled after testing and explicit owner configuration. Test and live credentials are separate. Do not paste secrets into ChatGPT.
+Do not paste credentials into ChatGPT, source code, GitHub, or the dashboard. After adding secrets, open the app, connect with the administrator token, and choose **Load sandbox operators**. Then a sandbox test can be sent from a registered SIM record.
+
+## What the test means
+- A provider status such as SUCCESSFUL is a successful sandbox simulation only.
+- It does not add airtime to the real SIM or verify a live account balance.
+- Live provider credentials and live top-ups are not enabled in this deployment.
 
 ## Before any real recharge is enabled
-1. Wire provider calls into a server-side API route only.
-2. Discover and verify the South African operator IDs from the provider catalogue; never guess IDs.
-3. Persist a unique transaction record before sending, then store provider transaction IDs and status.
-4. Add a duplicate guard and daily amount/transaction caps.
-5. On timeouts, check provider status/reconcile before retrying.
-6. Mark a recharge successful only from a provider-confirmed terminal status. A sandbox success is labelled sandbox only.
-7. Keep live orders disabled until the owner explicitly enables them and the funded provider account is verified.
+1. Confirm operator IDs from the provider catalogue and match the selected operator to the registered SIM network.
+2. Review and enable a separately controlled live-recharge path only after the owner has explicitly authorised the live provider account and spending limits.
+3. Persist each transaction before sending, use a unique idempotency reference, and reconcile ambiguous timeouts before retrying.
+4. Mark transactions successful only from provider-confirmed terminal status; label sandbox transactions clearly.
+5. Add daily limits, duplicate protection, monitoring, and a documented reconciliation process.
 
-## Can we recharge without a provider?
-A direct network API is possible only if a carrier grants Eyaelo authorised access to its recharge/charging system (for example, a carrier partner API or enterprise interface). There is no legitimate universal public endpoint that can add value to arbitrary SIMs for free or bypass network access controls. We will keep investigating official carrier/developer routes separately while this integration is built.
+## Investigating direct carrier access
+We will continue investigating official MTN, Vodacom, Cell C and Telkom developer/partner interfaces. Direct recharge requires authorised access to carrier charging systems; we will not pretend an unauthorised or simulated call credited a real SIM.
