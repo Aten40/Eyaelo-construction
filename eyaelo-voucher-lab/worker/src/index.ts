@@ -7,16 +7,16 @@ const LABEL = "INTERNAL TEST CREDIT — NOT REAL OPERATOR AIRTIME";
 const HEADERS = {"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"};
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:HEADERS});
 const nowIso=()=>new Date().toISOString();
-async function authorized(req:Request,env:Env):Promise<boolean>{
+export async function authorized(req:Request,env:Env):Promise<boolean>{
   const h=req.headers.get("Authorization")??"", supplied=h.startsWith("Bearer ")?h.slice(7):"";
   if(!supplied||!env.ADMIN_API_TOKEN)return false;
   const enc=new TextEncoder(),a=new Uint8Array(await crypto.subtle.digest("SHA-256",enc.encode(supplied))),b=new Uint8Array(await crypto.subtle.digest("SHA-256",enc.encode(env.ADMIN_API_TOKEN)));
   let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]^b[i];return diff===0;
 }
 async function readJson(req:Request):Promise<Record<string,unknown>|null>{try{const v:unknown=await req.json();return v&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null}catch{return null}}
-function makeToken():string{const bytes=crypto.getRandomValues(new Uint8Array(20));const hex=Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();return "EYA-"+(hex.match(/.{5}/g)??[]).join("-")}
-function validToken(v:unknown):string|null{if(typeof v!=="string")return null;const t=v.trim().toUpperCase();return /^EYA-(?:[0-9A-F]{5}-){7}[0-9A-F]{5}$/.test(t)?t:null}
-async function hashToken(t:string):Promise<string>{const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return Array.from(new Uint8Array(d),b=>b.toString(16).padStart(2,"0")).join("")}
+export function makeToken():string{const bytes=crypto.getRandomValues(new Uint8Array(20));const hex=Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();return "EYA-"+(hex.match(/.{5}/g)??[]).join("-")}
+export function validToken(v:unknown):string|null{if(typeof v!=="string")return null;const t=v.trim().toUpperCase();return /^EYA-(?:[0-9A-F]{5}-){7}[0-9A-F]{5}$/.test(t)?t:null}
+export async function hashToken(t:string):Promise<string>{const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return Array.from(new Uint8Array(d),b=>b.toString(16).padStart(2,"0")).join("")}
 export default {async fetch(req:Request,env:Env):Promise<Response>{
   const url=new URL(req.url);
   if(req.method==="GET"&&url.pathname==="/health")return json({ok:true,service:"eyaelo-internal-voucher-lab",enabled:env.VOUCHER_LAB_ENABLED==="true",liveCarrierCredit:false});
