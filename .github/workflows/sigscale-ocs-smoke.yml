@@ -39,7 +39,8 @@ jobs:
             -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
             -p 127.0.0.1:18080:8080/tcp \
-            sigscale/ocs:3.4.75-1
+            --entrypoint bash sigscale/ocs:3.4.75-1 -lc \
+            'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && exec bin/start'
       - name: Wait for OCS health endpoint
         run: |
           set -euo pipefail
