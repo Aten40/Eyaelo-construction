@@ -42,6 +42,25 @@ CREATE TABLE IF NOT EXISTS recharge_transactions (
 CREATE INDEX IF NOT EXISTS idx_recharges_card_created ON recharge_transactions(sim_card_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recharges_status_created ON recharge_transactions(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recharges_provider_ref ON recharge_transactions(provider, provider_reference);
+-- Internal simulated balances only. These tables do not represent carrier balances.
+CREATE TABLE IF NOT EXISTS simulated_subscriber_balances (
+  phone_number TEXT NOT NULL,
+  network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')),
+  balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents >= 0),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (phone_number, network)
+);
+
+CREATE TABLE IF NOT EXISTS simulated_recharge_ledger (
+  id TEXT PRIMARY KEY,
+  phone_number TEXT NOT NULL,
+  network TEXT NOT NULL CHECK (network IN ('MTN','Vodacom','Cell C','Telkom')),
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+  idempotency_key TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status = 'simulated'),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 
 -- Verified network usage/activity is separate from top-up transactions.
 CREATE TABLE IF NOT EXISTS network_activity (
