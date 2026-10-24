@@ -28,14 +28,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Pull upstream SigScale OCS image
-        run: docker pull sigscale/ocs:3.4.75-1
+        run: docker pull sigscale/ocs:3.4.74-1
       - name: Initialize OCS database
         run: |
           set -euo pipefail
           docker volume create eyaelo-ocs-smoke-db
           docker run --rm --entrypoint bash -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
-            sigscale/ocs:3.4.75-1 -lc 'bin/initialize'
+            sigscale/ocs:3.4.74-1 -lc 'bin/initialize'
       - name: Start OCS container
         run: |
           set -euo pipefail
@@ -43,7 +43,7 @@ jobs:
             -h ocsnode.example.com \
             -v eyaelo-ocs-smoke-db:/home/otp/db \
             -p 127.0.0.1:18080:8080/tcp \
-            --entrypoint bash sigscale/ocs:3.4.75-1 -lc \
+            --entrypoint bash sigscale/ocs:3.4.74-1 -lc \
             'mkdir -p /home/otp/log/ipdr/wlan /home/otp/log/ipdr/voip && exec bin/start'
       - name: Wait for OCS health endpoint
         run: |
