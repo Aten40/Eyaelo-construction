@@ -141,19 +141,34 @@ export async function validateInternalTestVoucher(
   if (redeem) {
     const redeemedAt = nowIso();
     const reference = crypto.randomUUID();
-    const update = await env.DB.prepare(
-      "UPDATE internal_test_vouchers SET status = 'redeemed', redeemed_at = ?, redemption_reference = ? WHERE id = ? AND status = 'issued' AND expires_at > ?",
-    ).bind(redeemedAt, reference, row.id, redeemedAt).run();
+    // D1 batch is transactional. The audit insert is conditional on this exact
+    // redemption timestamp being written, so the voucher state and audit record
+    // commit together or roll back together.
+    const results = await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE internal_test_vouchers SET status = 'redeemed', redeemed_at = ?, redemption_reference = ? WHERE id = ? AND status = 'issued' AND expires_at > ?",
+      ).bind(redeemedAt, reference, row.id, redeemedAt),
+      env.DB.prepare(
+        "INSERT INTO internal_voucher_lab_events (id, voucher_id, event_type, outcome, event_at, request_id, details_json) SELECT ?, ?, 'voucher.redeem', 'success', ?, ?, ? WHERE EXISTS (SELECT 1 FROM internal_test_vouchers WHERE id = ? AND status = 'redeemed' AND redeemed_at = ? AND redemption_reference = ?)",
+      ).bind(
+        crypto.randomUUID(),
+        row.id,
+        redeemedAt,
+        requestId ?? null,
+        JSON.stringify({ amount_cents: row.amount_cents, currency: row.currency }),
+        row.id,
+        redeemedAt,
+        reference,
+      ),
+    ]);
+    const update = results[0];
+    const audit = results[1];
 
-    if (!update.success || update.meta.changes !== 1) {
-      const latest = await env.DB.prepare("SELECT status FROM internal_test_vouchers WHERE id = ?").bind(row.id).first<{ status: string }>();
-      const status = latest?.status === "expired" ? "expired" : "already_redeemed";
+    if (!update.success || update.meta.changes !== 1 || !audit.success || audit.meta.changes !== 1) {
+      const latest = await env.DB.prepare("SELECT status, expires_at FROM internal_test_vouchers WHERE id = ?").bind(row.id).first<{ status: string; expires_at: string }>();
+      const status = latest?.status === "expired" || (latest?.expires_at && latest.expires_at <= nowIso()) ? "expired" : "already_redeemed";
       return { valid: false, status, simulated: true, label };
     }
-
-    await env.DB.prepare(
-      "INSERT INTO internal_voucher_lab_events (id, voucher_id, event_type, outcome, event_at, request_id, details_json) VALUES (?, ?, 'voucher.redeem', 'success', ?, ?, ?)",
-    ).bind(crypto.randomUUID(), row.id, redeemedAt, requestId ?? null, JSON.stringify({ amount_cents: row.amount_cents, currency: row.currency })).run();
 
     return { valid: true, status: "redeemed", id: row.id, amount_cents: row.amount_cents, currency: row.currency, simulated: true, label };
   }
