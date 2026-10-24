@@ -1,7 +1,14 @@
 {
- "name":"eyaelo-internal-voucher-lab",
- "private":true,
- "type":"module",
- "scripts":{"check":"tsc --noEmit"},
- "devDependencies":{"@cloudflare/workers-types":"latest","typescript":"latest"}
+  "name": "eyaelo-internal-voucher-lab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "typescript": "latest",
+    "vitest": "^4.1.0"
+  }
 }
