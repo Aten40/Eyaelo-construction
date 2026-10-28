@@ -721,3 +721,76 @@ footer a:hover{color:#e1bb60}
 .catalogue-scope>strong,.admin-design-scope>strong{display:block;margin-bottom:7px}
 .catalogue-scope p,.admin-design-scope p{margin:5px 0}
 @media(max-width:600px){.market-scope-fieldset{grid-template-columns:1fr;padding:12px}.market-scope-fieldset legend{font-size:14px}}
+
+
+/* Cross-page responsive safety: prevent bordered cards, forms and headings from overflowing on phones. */
+html,body,#root,.site-shell,main{min-width:0;max-width:100%}
+body{overflow-x:clip}
+.container,.nav-wrap,.hero-inner,.section-head,.intro-grid,.materials-grid,.why-grid,.contact-grid,
+.card-grid,.service-long-grid,.category-grid,.feature-list,.values,.footer-grid,.form-grid,
+.market-hero-grid,.market-form-grid,.market-category-grid,.market-quick-actions{min-width:0}
+img,video,iframe,svg{max-width:100%}
+img,video{height:auto}
+p,h1,h2,h3,h4,small,strong,label,a,button{overflow-wrap:anywhere}
+.service-card,.service-long-grid article,.feature-list article,.values div,.contact-box,.form,
+.market-category,.market-hero-panel,.market-form,.dynamic-project-card,.dynamic-product-card,
+.admin-list-wrap,.admin-editor{min-width:0;max-width:100%}
+.form input,.form select,.form textarea,.market-form input,.market-form select,.market-form textarea,
+.admin-field input,.admin-field select,.admin-field textarea{min-width:0;max-width:100%}
+.form-grid>*{min-width:0}
+.btn,.quote-btn{white-space:normal;text-align:center;line-height:1.35}
+.section-head{flex-wrap:wrap}
+.text-link{min-width:0;max-width:100%;overflow-wrap:anywhere}
+@media(max-width:900px){
+ .container{width:calc(100% - 32px)}
+ .intro-grid,.materials-grid,.why-grid,.contact-grid,.cta-band .container{grid-template-columns:minmax(0,1fr);gap:28px}
+ .card-grid,.service-long-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .footer-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px}
+ .footer-grid>div:first-child{grid-column:1/-1}
+ .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:600px){
+ .container{width:calc(100% - 28px)}
+ .nav-wrap{gap:10px}
+ .brand{min-width:0;gap:8px}
+ .brand>span{min-width:0;overflow-wrap:anywhere}
+ .menu-btn{flex:0 0 auto;padding:8px}
+ .nav{max-height:calc(100dvh - 72px);overflow-y:auto;overscroll-behavior:contain}
+ .hero{min-height:0;padding:76px 0}
+ .hero-inner{width:100%}
+ .hero h1{font-size:clamp(36px,10vw,48px);line-height:1.04;overflow-wrap:break-word}
+ .hero p,.intro-grid p,.lead{font-size:16px;line-height:1.65}
+ .section{padding:56px 0}
+ .section-head{align-items:flex-start;gap:12px}
+ .section-head>*{min-width:0}
+ .intro-grid,.materials-grid,.why-grid,.contact-grid{grid-template-columns:minmax(0,1fr);gap:24px}
+ .card-grid,.service-long-grid,.category-grid,.feature-list,.values{grid-template-columns:minmax(0,1fr)}
+ .service-card,.service-long-grid article,.feature-list article,.values div,.contact-box{padding:20px}
+ .form{padding:18px}
+ .form-grid{grid-template-columns:minmax(0,1fr);gap:14px}
+ .form .full{grid-column:auto}
+ .notice{align-items:flex-start;flex-wrap:wrap;padding:17px}
+ .notice div{min-width:0}
+ .category-grid a{gap:12px;padding:16px}
+ .cta-band{padding:42px 0}
+ .cta-band .container{grid-template-columns:minmax(0,1fr);gap:18px}
+ .cta-band .btn{width:100%;margin:0}
+ .footer-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+ .footer-grid>div:first-child{grid-column:auto}
+ .copyright{line-height:1.6;overflow-wrap:anywhere}
+ .whatsapp,.facebook-float{width:46px;height:46px;right:12px}
+ .whatsapp{bottom:12px}
+ .facebook-float{bottom:68px}
+ .market-hero-grid,.market-form-grid,.market-category-grid{grid-template-columns:minmax(0,1fr)}
+ .market-hero-panel{padding:22px}
+ .market-hero h1{font-size:clamp(35px,9.5vw,44px);overflow-wrap:break-word}
+ .market-form-grid>div{min-width:0}
+}
+@media(max-width:360px){
+ .brand img{width:37px;height:37px}
+ .brand>span{font-size:12px}
+ .brand span span{font-size:7px;letter-spacing:.1em}
+ .hero h1{font-size:35px}
+ .btn,.quote-btn{padding:11px 13px!important}
+ .market-hero-panel{padding:17px}
+}
