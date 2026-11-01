@@ -363,7 +363,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
       let uploadedVideo = false;
-      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.protocol === "https:" && ["eyaelo-constructions.pages.dev", "eyaelo-construction.martinelolu30.workers.dev", new URL(request.url).hostname].includes(uploaded.hostname) && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
@@ -399,7 +399,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
       let uploadedVideo = false;
-      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.protocol === "https:" && ["eyaelo-constructions.pages.dev", "eyaelo-construction.martinelolu30.workers.dev", new URL(request.url).hostname].includes(uploaded.hostname) && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
