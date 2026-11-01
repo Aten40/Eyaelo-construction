@@ -54,7 +54,7 @@ const emptyFor = (tab: Tab): Row => tab === 'products'
       ? { title: '', description: '', location: '', image_url: '', published: false }
       : tab === 'designs'
         ? { title: '', description: '', category: 'Residential', designer_name: '', designer_email: '', designer_phone: '', portfolio_url: '', image_url: '', price_label: 'Enquire for price', rights_confirmed: false, status: 'pending' }
-        : { title: '', description: '', video_url: '', placement: 'website', published: false };
+        : { title: '', description: '', video_url: '', placement: 'website', published: tab === 'videos' };
 
 async function api(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
@@ -127,7 +127,7 @@ export default function AdminPage() {
       const payload = { ...record, published: Boolean(record.published) };
       const path = '/api/admin/' + tab + (record.id ? '/' + record.id : '');
       await api(path, { method: record.id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
-      setRecord(emptyFor(tab)); await load(tab); setNotice('Saved successfully.');
+      setRecord(emptyFor(tab)); await load(tab); setNotice(tab === 'videos' ? (payload.published ? 'Video published successfully. It should now appear in the public video gallery.' : 'Video saved as a draft. Tick “Publish this item on the public website” to show it in the gallery.') : 'Saved successfully.');
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not save changes.'); }
     finally { setBusy(false); }
   };
@@ -398,7 +398,7 @@ export default function AdminPage() {
             {tab === 'projects' && <>{field('Project title', 'title')}{field('Description', 'description', true)}{field('Location (optional)', 'location')}{field('Photo URL', 'image_url', false, 'Paste an image URL')}{imageUploadField('projects', url => setRecord(current => ({ ...current, image_url: url })), record.title || 'Construction project', record.description || '')}</>}
             {tab === 'videos' && <>{field('Video title', 'title')}{field('Description', 'description', true)}<label className="admin-field"><span>{uploadingImage === 'videos' ? 'Uploading selected video…' : 'Choose a video from phone or device'}</span><input type="file" accept="video/*,.mp4,.webm,.mov,.m4v,.3gp" disabled={Boolean(uploadingImage)} onChange={e => { const input = e.currentTarget; const file = input.files?.item(0); if (!file) { setError('No video file was received from the phone. Please choose the video again.'); return; } setError(''); setNotice('Selected ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(1) + ' MB). Starting upload…'); input.value = ''; void uploadVideo(file); }} /></label><small className="admin-hint">Choose a video saved on your device. MP4, WebM or MOV · maximum 25 MB. Keep this page open until the upload finishes.</small>{record.video_url?.includes('/media/uploads/videos/') && <div className="admin-video-preview"><video src={record.video_url} controls playsInline preload="metadata" style={{ width: '100%', maxWidth: '560px', borderRadius: '12px', background: '#111' }} /><p className="admin-hint">Uploaded video is ready. Save changes to publish it.</p><button type="button" className="btn outline" onClick={() => setRecord(current => ({ ...current, video_url: '' }))}>Remove selected video</button></div>}<label className="admin-field"><span>Or use a YouTube or Vimeo link (optional)</span><input type="url" value={record.video_url || ''} placeholder="https://www.youtube.com/… or https://vimeo.com/…" onChange={e => setRecord({ ...record, video_url: e.target.value })} /></label><label className="admin-field"><span>Show video in</span><select value={record.placement || 'website'} onChange={e => setRecord({ ...record, placement: e.target.value })}><option value="website">Main website</option><option value="shop">Building materials shop</option><option value="both">Website and shop</option></select></label><p className="admin-hint">Upload a video directly from your device, or optionally use a YouTube/Vimeo link. Uploaded videos are stored by Eyaelo.</p></>}
             <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.published)} onChange={e => setRecord({ ...record, published: e.target.checked })}/><span>Publish this item on the public website</span></label>
-            <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving…' : record.id ? 'Save changes' : 'Add item'}</button>
+            <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving…' : tab === 'videos' ? (record.published ? (record.id ? 'Publish video changes' : 'Publish video') : 'Save video draft') : record.id ? 'Save changes' : 'Add item'}</button>
             {record.id && <button className="btn outline" type="button" onClick={() => setRecord(emptyFor(tab))}>Cancel editing</button>}
             <p className="admin-hint">Draft items remain private. Product prices are for display only; online ordering and checkout remain disabled.</p>
           </form>
