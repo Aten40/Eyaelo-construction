@@ -145,7 +145,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
   if (path === "/api/admin/uploads" && request.method === "DELETE") {
     if (!env.MEDIA || typeof env.MEDIA.delete !== "function") return json({ error: "Image storage is not connected." }, 503);
     const key = clean(url.searchParams.get("key"), 300);
-    if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(key)) return json({ error: "Only Eyaelo-uploaded media files can be permanently deleted here." }, 400);
+    if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(key)) return json({ error: "Only Eyaelo-uploaded media files can be permanently deleted here." }, 400);
     await env.MEDIA.delete(key);
     return json({ ok: true, deleted: key });
   }
@@ -184,7 +184,18 @@ async function adminApi(request: Request, env: Env, url: URL) {
       httpMetadata: { contentType: file.type.toLowerCase() || (ext === "webm" ? "video/webm" : ext === "mov" ? "video/quicktime" : "video/mp4"), cacheControl: "public, max-age=31536000, immutable" },
       customMetadata: { category, title, description, originalName: clean(file.name, 180) }
     });
-    return json({ ok: true, key, url: new URL(request.url).origin + "/media/" + key, title, description }, 201);
+    const videoUrl = new URL(request.url).origin + "/media/" + key;
+    if (isVideo) {
+      try {
+        const saved = await env.DB.prepare("INSERT INTO videos (title, description, video_url, placement, published, updated_at) VALUES (?, ?, ?, 'website', 0, datetime('now'))")
+          .bind(title || clean(file.name.replace(/\\.[^.]+$/, ""), 160) || "Eyaelo video", description, videoUrl).run();
+        return json({ ok: true, id: Number(saved.meta?.last_row_id || 0), key, url: videoUrl, title, description, published: false }, 201);
+      } catch (dbError) {
+        await env.MEDIA.delete(key).catch(() => {});
+        throw dbError;
+      }
+    }
+    return json({ ok: true, key, url: videoUrl, title, description }, 201);
   }
 
 
@@ -352,7 +363,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
       let uploadedVideo = false;
-      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(uploaded.pathname); } catch {}
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
@@ -388,7 +399,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
       let uploadedVideo = false;
-      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(uploaded.pathname); } catch {}
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
@@ -415,7 +426,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
         try {
           const videoUrl = new URL(String(video.video_url));
           if (videoUrl.origin === new URL(request.url).origin) {
-            const match = videoUrl.pathname.match(/^\/media\/(uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov))$/);
+            const match = videoUrl.pathname.match(/^\/media\/(uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2))$/);
             if (match) await env.MEDIA.delete(match[1]);
           }
         } catch {}
@@ -433,7 +444,7 @@ export default {
     if (url.pathname.startsWith("/media/")) {
       if (!env.MEDIA || typeof env.MEDIA.get !== "function") return new Response("Image storage is unavailable.", { status: 503 });
       const key = decodeURIComponent(url.pathname.slice("/media/".length));
-      if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(key)) return new Response("Not found.", { status: 404 });
+      if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov|m4v|3gp|3g2)$/.test(key)) return new Response("Not found.", { status: 404 });
       const object = await env.MEDIA.get(key);
       if (!object) return new Response("Not found.", { status: 404 });
       const headers = new Headers();
