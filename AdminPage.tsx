@@ -224,10 +224,21 @@ export default function AdminPage() {
       form.append('category', 'videos');
       form.append('title', record.title || 'Eyaelo video');
       form.append('description', record.description || '');
-      const response = await fetch('/api/admin/uploads', { method: 'POST', body: form, credentials: 'same-origin' });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Video upload failed.');
-      setRecord(current => ({ ...current, video_url: data.url }));
+      let response: Response;
+      try {
+        response = await fetch('/api/admin/uploads', { method: 'POST', body: form, credentials: 'same-origin' });
+      } catch (networkError) {
+        throw new Error('Could not reach the upload service. Check your connection and sign in again. Details: ' + (networkError instanceof Error ? networkError.message : String(networkError)));
+      }
+      const responseText = await response.text();
+      let data: { error?: string; url?: string } = {};
+      try { data = JSON.parse(responseText); } catch { /* show the HTTP response details below */ }
+      if (!response.ok) {
+        const detail = data.error || responseText.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 220);
+        throw new Error('Upload service returned HTTP ' + response.status + (response.statusText ? ' ' + response.statusText : '') + (detail ? ': ' + detail : '.'));
+      }
+      if (!data.url) throw new Error('The upload service responded successfully but did not return a video URL. Response: ' + responseText.slice(0, 180));
+      setRecord(current => ({ ...current, video_url: data.url! }));
       setNotice('Video uploaded to Cloudflare storage. Save the video record to publish it.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Video upload failed.');
