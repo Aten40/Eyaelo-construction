@@ -145,34 +145,37 @@ async function adminApi(request: Request, env: Env, url: URL) {
   if (path === "/api/admin/uploads" && request.method === "DELETE") {
     if (!env.MEDIA || typeof env.MEDIA.delete !== "function") return json({ error: "Image storage is not connected." }, 503);
     const key = clean(url.searchParams.get("key"), 300);
-    if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key)) return json({ error: "Only Eyaelo-uploaded image files can be permanently deleted here." }, 400);
+    if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(key)) return json({ error: "Only Eyaelo-uploaded media files can be permanently deleted here." }, 400);
     await env.MEDIA.delete(key);
     return json({ ok: true, deleted: key });
   }
 
   if (path === "/api/admin/uploads" && request.method === "POST") {
-    if (!env.MEDIA || typeof env.MEDIA.put !== "function") return json({ error: "Image storage is not connected to this Worker yet." }, 503);
+    if (!env.MEDIA || typeof env.MEDIA.put !== "function") return json({ error: "Cloudflare media storage is not connected to this Worker." }, 503);
     const contentType = request.headers.get("content-type") || "";
-    if (!contentType.toLowerCase().includes("multipart/form-data")) return json({ error: "Choose an image file to upload." }, 400);
+    if (!contentType.toLowerCase().includes("multipart/form-data")) return json({ error: "Choose a file to upload." }, 400);
     const form = await request.formData();
     const file = form.get("file");
-    if (!(file instanceof File) || file.size === 0) return json({ error: "Choose an image from your phone first." }, 400);
-    if (file.size > 8 * 1024 * 1024) return json({ error: "Images must be 8 MB or smaller." }, 413);
-    const allowedTypes: Record<string, string> = {
-      "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"
-    };
-    const ext = allowedTypes[file.type.toLowerCase()];
-    if (!ext) return json({ error: "Use a JPG, PNG, WEBP or GIF image." }, 400);
+    if (!(file instanceof File) || file.size === 0) return json({ error: "Choose a file from your device first." }, 400);
     const category = clean(form.get("category"), 30).toLowerCase();
-    if (!["construction", "services", "projects", "products", "designs"].includes(category)) return json({ error: "Choose a valid image category." }, 400);
+    const isVideo = category === "videos";
+    const maxBytes = isVideo ? 25 * 1024 * 1024 : 8 * 1024 * 1024;
+    if (file.size > maxBytes) return json({ error: isVideo ? "Videos must be 25 MB or smaller." : "Images must be 8 MB or smaller." }, 413);
+    const imageTypes: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
+    const videoTypes: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
+    const ext = (isVideo ? videoTypes : imageTypes)[file.type.toLowerCase()];
+    if (!ext) return json({ error: isVideo ? "Use an MP4, WebM or MOV video." : "Use a JPG, PNG, WEBP or GIF image." }, 400);
+    if (!(isVideo ? category === "videos" : ["construction", "services", "projects", "products", "designs"].includes(category))) return json({ error: "Choose a valid upload category." }, 400);
     const title = clean(form.get("title"), 160);
     const description = clean(form.get("description"), 1000);
     const bytes = new Uint8Array(await file.arrayBuffer());
     const isJpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
     const isPng = bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71;
     const isGif = bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56;
-    const isWebp = bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80;
-    if (!(isJpeg || isPng || isGif || isWebp)) return json({ error: "The selected file does not appear to be a valid image." }, 400);
+    const isWebp = bytes[0] === 82 && bytes[1] === 73 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80;
+    const isMp4 = bytes.length > 12 && bytes[4] === 102 && bytes[5] === 116 && bytes[6] === 121 && bytes[7] === 112;
+    const isWebm = bytes[0] === 26 && bytes[1] === 69 && bytes[2] === 223 && bytes[3] === 163;
+    if (isVideo ? !(isMp4 || isWebm) : !(isJpeg || isPng || isGif || isWebp)) return json({ error: "The selected file does not match a supported media format." }, 400);
     const key = "uploads/" + category + "/" + crypto.randomUUID() + "." + ext;
     await env.MEDIA.put(key, bytes, {
       httpMetadata: { contentType: file.type.toLowerCase(), cacheControl: "public, max-age=31536000, immutable" },
@@ -345,10 +348,10 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const published = body.published ? 1 : 0;
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
-      let parsed: URL;
-      try { parsed = new URL(videoUrl); } catch { return json({ error: "Enter a valid YouTube or Vimeo video link." }, 400); }
-      if (parsed.protocol !== "https:" || !["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname)) return json({ error: "Use a public YouTube or Vimeo video link." }, 400);
-      if (!title || !videoUrl) return json({ error: "Video title and link are required." }, 400);
+      const uploadedVideo = /^https:\/\/[^/]+\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(videoUrl);
+      let validExternal = false;
+      if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
+      if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
       if (!["website", "shop", "both"].includes(placement)) return json({ error: "Choose where the video should appear." }, 400);
       const result = await env.DB.prepare("INSERT INTO videos (title, description, video_url, placement, published, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))").bind(title, clean(body.description, 3000), videoUrl, placement, published).run();
       return json({ id: result.meta?.last_row_id }, 201);
@@ -380,9 +383,10 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const table = itemMatch[1], id = Number(itemMatch[2]), body = await readBody(request), published = body.published ? 1 : 0;
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
-      let parsed: URL;
-      try { parsed = new URL(videoUrl); } catch { return json({ error: "Enter a valid YouTube or Vimeo video link." }, 400); }
-      if (!title || parsed.protocol !== "https:" || !["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname)) return json({ error: "Enter a title and a valid YouTube or Vimeo link." }, 400);
+      const uploadedVideo = /^https:\/\/[^/]+\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(videoUrl);
+      let validExternal = false;
+      if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
+      if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
       if (!["website", "shop", "both"].includes(placement)) return json({ error: "Choose where the video should appear." }, 400);
       await env.DB.prepare("UPDATE videos SET title=?, description=?, video_url=?, placement=?, published=?, updated_at=datetime('now') WHERE id=?").bind(title, clean(body.description, 3000), videoUrl, placement, published, id).run();
     } else if (table === "products") {
@@ -412,7 +416,7 @@ export default {
     if (url.pathname.startsWith("/media/")) {
       if (!env.MEDIA || typeof env.MEDIA.get !== "function") return new Response("Image storage is unavailable.", { status: 503 });
       const key = decodeURIComponent(url.pathname.slice("/media/".length));
-      if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key)) return new Response("Not found.", { status: 404 });
+      if (!/^uploads\/(?:construction|services|projects|products|designs)\/[a-f0-9-]+\.(?:jpg|png|webp|gif)$/.test(key) && !/^uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(key)) return new Response("Not found.", { status: 404 });
       const object = await env.MEDIA.get(key);
       if (!object) return new Response("Not found.", { status: 404 });
       const headers = new Headers();
