@@ -216,6 +216,26 @@ export default function AdminPage() {
     }
   };
 
+  const uploadVideo = async (file: File) => {
+    setUploadingImage('videos'); setError(''); setNotice('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('category', 'videos');
+      form.append('title', record.title || 'Eyaelo video');
+      form.append('description', record.description || '');
+      const response = await fetch('/api/admin/uploads', { method: 'POST', body: form, credentials: 'same-origin' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Video upload failed.');
+      setRecord(current => ({ ...current, video_url: data.url }));
+      setNotice('Video uploaded to Cloudflare storage. Save the video record to publish it.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Video upload failed.');
+    } finally {
+      setUploadingImage('');
+    }
+  };
+
   const imageUploadField = (category: string, onUploaded: (url: string) => void, title = '', description = '') => (
     <label className="admin-field image-upload-field">
       <span>{uploadingImage === category ? 'Uploading image…' : 'Upload image from phone gallery'}</span>
@@ -376,7 +396,7 @@ export default function AdminPage() {
             </>}
             {tab === 'services' && <>{field('Service name', 'name')}{field('Description', 'description', true)}{field('Display order', 'sort_order')}</>}
             {tab === 'projects' && <>{field('Project title', 'title')}{field('Description', 'description', true)}{field('Location (optional)', 'location')}{field('Photo URL', 'image_url', false, 'Paste an image URL')}{imageUploadField('projects', url => setRecord(current => ({ ...current, image_url: url })), record.title || 'Construction project', record.description || '')}</>}
-            {tab === 'videos' && <>{field('Video title', 'title')}{field('Description', 'description', true)}{field('YouTube or Vimeo link', 'video_url', false, 'Paste a YouTube or Vimeo video link')}<label className="admin-field"><span>Show video in</span><select value={record.placement || 'website'} onChange={e => setRecord({ ...record, placement: e.target.value })}><option value="website">Main website</option><option value="shop">Building materials shop</option><option value="both">Website and shop</option></select></label><p className="admin-hint">Use a public YouTube or Vimeo video link. The website embeds the video; it does not upload large video files directly.</p></>}
+            {tab === 'videos' && <>{field('Video title', 'title')}{field('Description', 'description', true)}<label className="admin-field"><span>Upload video from phone or device</span><input type="file" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" disabled={Boolean(uploadingImage)} onChange={e => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void uploadVideo(file); }} /></label><small className="admin-hint">MP4, WebM or MOV · maximum 25 MB. The file is stored in Eyaelo Cloudflare storage.</small>{record.video_url && <div className="admin-video-preview"><video src={record.video_url} controls playsInline preload="metadata" style={{ width: '100%', maxWidth: '560px', borderRadius: '12px', background: '#111' }} /><p className="admin-hint">Uploaded video is ready. Save changes to publish it.</p><button type="button" className="btn outline" onClick={() => setRecord(current => ({ ...current, video_url: '' }))}>Remove selected video</button></div>}<label className="admin-field"><span>Or use a YouTube or Vimeo link (optional)</span><input type="url" value={record.video_url || ''} placeholder="https://www.youtube.com/… or https://vimeo.com/…" onChange={e => setRecord({ ...record, video_url: e.target.value })} /></label><label className="admin-field"><span>Show video in</span><select value={record.placement || 'website'} onChange={e => setRecord({ ...record, placement: e.target.value })}><option value="website">Main website</option><option value="shop">Building materials shop</option><option value="both">Website and shop</option></select></label><p className="admin-hint">Upload a video directly from your device, or optionally use a YouTube/Vimeo link. Uploaded videos are stored by Eyaelo.</p></>}
             <label className="admin-checkbox"><input type="checkbox" checked={Boolean(record.published)} onChange={e => setRecord({ ...record, published: e.target.checked })}/><span>Publish this item on the public website</span></label>
             <button className="btn primary" type="submit" disabled={busy}><Save size={16}/> {busy ? 'Saving…' : record.id ? 'Save changes' : 'Add item'}</button>
             {record.id && <button className="btn outline" type="button" onClick={() => setRecord(emptyFor(tab))}>Cancel editing</button>}
