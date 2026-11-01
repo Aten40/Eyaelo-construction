@@ -348,7 +348,8 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const published = body.published ? 1 : 0;
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
-      const uploadedVideo = /^https:\/\/[^/]+\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(videoUrl);
+      let uploadedVideo = false;
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
@@ -383,7 +384,8 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const table = itemMatch[1], id = Number(itemMatch[2]), body = await readBody(request), published = body.published ? 1 : 0;
     if (table === "videos") {
       const title = clean(body.title, 160), videoUrl = clean(body.video_url, 1000), placement = clean(body.placement, 20) || "website";
-      const uploadedVideo = /^https:\/\/[^/]+\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(videoUrl);
+      let uploadedVideo = false;
+      try { const uploaded = new URL(videoUrl); uploadedVideo = uploaded.origin === new URL(request.url).origin && /^\/media\/uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov)$/.test(uploaded.pathname); } catch {}
       let validExternal = false;
       if (!uploadedVideo) { try { const parsed = new URL(videoUrl); validExternal = parsed.protocol === "https:" && ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtu.be", "vimeo.com", "www.vimeo.com", "player.vimeo.com"].includes(parsed.hostname); } catch {} }
       if (!title || !videoUrl || (!uploadedVideo && !validExternal)) return json({ error: "Add a valid uploaded video or a public YouTube/Vimeo link." }, 400);
@@ -404,6 +406,18 @@ async function adminApi(request: Request, env: Env, url: URL) {
     return json({ ok: true });
   }
   if (itemMatch && request.method === "DELETE") {
+    if (itemMatch[1] === "videos") {
+      const video = await env.DB.prepare("SELECT video_url FROM videos WHERE id = ?").bind(Number(itemMatch[2])).first();
+      if (video?.video_url && env.MEDIA && typeof env.MEDIA.delete === "function") {
+        try {
+          const videoUrl = new URL(String(video.video_url));
+          if (videoUrl.origin === new URL(request.url).origin) {
+            const match = videoUrl.pathname.match(/^\/media\/(uploads\/videos\/[a-f0-9-]+\.(?:mp4|webm|mov))$/);
+            if (match) await env.MEDIA.delete(match[1]);
+          }
+        } catch {}
+      }
+    }
     await env.DB.prepare("DELETE FROM " + itemMatch[1] + " WHERE id = ?").bind(Number(itemMatch[2])).run();
     return json({ ok: true });
   }
