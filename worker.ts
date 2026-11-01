@@ -162,9 +162,12 @@ async function adminApi(request: Request, env: Env, url: URL) {
     const maxBytes = isVideo ? 25 * 1024 * 1024 : 8 * 1024 * 1024;
     if (file.size > maxBytes) return json({ error: isVideo ? "Videos must be 25 MB or smaller." : "Images must be 8 MB or smaller." }, 413);
     const imageTypes: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
-    const videoTypes: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov" };
-    const ext = (isVideo ? videoTypes : imageTypes)[file.type.toLowerCase()];
-    if (!ext) return json({ error: isVideo ? "Use an MP4, WebM or MOV video." : "Use a JPG, PNG, WEBP or GIF image." }, 400);
+    const videoTypes: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/x-m4v": "m4v", "video/3gpp": "3gp", "video/3gpp2": "3g2" };
+    const namedExtension = (file.name.split(".").pop() || "").toLowerCase();
+    const ext = isVideo
+      ? (videoTypes[file.type.toLowerCase()] || (["mp4", "webm", "mov", "m4v", "3gp", "3g2"].includes(namedExtension) ? namedExtension : ""))
+      : imageTypes[file.type.toLowerCase()];
+    if (!ext) return json({ error: isVideo ? "This video format is not recognised. Choose an MP4, WebM or MOV video." : "Use a JPG, PNG, WEBP or GIF image." }, 400);
     if (!(isVideo ? category === "videos" : ["construction", "services", "projects", "products", "designs"].includes(category))) return json({ error: "Choose a valid upload category." }, 400);
     const title = clean(form.get("title"), 160);
     const description = clean(form.get("description"), 1000);
@@ -178,7 +181,7 @@ async function adminApi(request: Request, env: Env, url: URL) {
     if (isVideo ? !(isMp4 || isWebm) : !(isJpeg || isPng || isGif || isWebp)) return json({ error: "The selected file does not match a supported media format." }, 400);
     const key = "uploads/" + category + "/" + crypto.randomUUID() + "." + ext;
     await env.MEDIA.put(key, bytes, {
-      httpMetadata: { contentType: file.type.toLowerCase(), cacheControl: "public, max-age=31536000, immutable" },
+      httpMetadata: { contentType: file.type.toLowerCase() || (ext === "webm" ? "video/webm" : ext === "mov" ? "video/quicktime" : "video/mp4"), cacheControl: "public, max-age=31536000, immutable" },
       customMetadata: { category, title, description, originalName: clean(file.name, 180) }
     });
     return json({ ok: true, key, url: new URL(request.url).origin + "/media/" + key, title, description }, 201);
